@@ -24,7 +24,8 @@
     "**/target/**": true,
     "**/.scala-build/**": true,
     "**/.ammonite/**": true,
-    "**/.sbt/**": true
+    "**/.sbt/**": true,
+    "**/target": true
   },
   "editor.formatOnSave": true,
   "[html]": {
