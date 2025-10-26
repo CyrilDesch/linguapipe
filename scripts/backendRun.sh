@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 set -e
-sbt -mem 4096 "server/run"
+sbt -mem 4096 "infrastructure/run"

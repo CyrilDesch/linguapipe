@@ -1,0 +1,36 @@
+name: Quality Check
+
+on:
+  workflow_call:
+
+jobs:
+  quality-check:
+    name: Quality Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "21"
+          cache: "sbt"
+
+      - name: Setup sbt
+        uses: sbt/setup-sbt@v1
+        with:
+          sbt-runner-version: "1.11.7"
+
+      - name: Check formatting
+        run: sbt scalafmtCheckAll scalafmtSbtCheck
+
+      - name: Check clean code
+        run: sbt "scalafix --check"
+
+      - name: Run tests
+        run: sbt test

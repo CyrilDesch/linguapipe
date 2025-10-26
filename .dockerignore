@@ -1,0 +1,32 @@
+# Git
+.git
+.gitignore
+.github
+
+# SBT
+target/
+project/target/
+project/project/target/
+
+# Metals & IDE
+.metals
+.bsp
+.vscode
+.idea
+*.iml
+
+# Documentation
+docs/
+*.md
+LICENSE
+
+# Docker
+docker-compose.yml
+Dockerfile
+
+# Scripts
+scripts/
+
+# Logs
+*.log
+

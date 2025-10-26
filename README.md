@@ -1,42 +1,247 @@
-# NapNotes Backend
+# LinguaPipe
 
-Backend-only Scala 3 project built with ZIO, Tapir and ZIO HTTP. The former Scala.js/Laminar frontend has been removed so the focus is purely on the API stack.
+**A modular, production-ready Scala pipeline for transforming audio, text, and PDFs into searchable knowledge.**
 
-## Prerequisites
+LinguaPipe is designed with **Hexagonal Architecture** principles, making it easy to swap implementations without touching business logic. Built with **ZIO** for type-safe concurrency and **Scala 3** for modern functional programming.
 
-- JDK 21+
-- sbt
-- Docker (optional, for container images)
+## Features
 
-## Usage
+- Transcribe audio with Whisper (faster-whisper Docker)
+- Generate embeddings with HuggingFace Text Embeddings Inference (Docker)
+- Store data in PostgreSQL
+- Index vectors in Qdrant (Docker)
+- Store blobs with MinIO (S3-compatible Docker service)
+- Expose APIs via gRPC
+- Switch adapters through config files without changing code
+- Built with hexagonal architecture for clean testing and extension
 
-- Run the service in the foreground:
+## 📋 Prerequisites
 
-  ```bash
-  sbt "server/run"
-  ```
+- **JDK 21+**
+- **sbt 1.10+**
+- **Docker & Docker Compose**
 
-- Reload on code changes:
+Note : No API keys or third-party accounts needed for the default configuration!
 
-  ```bash
-  sbt "~server/reStart"
-  ```
+## 🚀 Quick Start
 
-- Run the test suite:
+### 1. Clone the repository
 
-  ```bash
-  sbt "server/test"
-  ```
+```bash
+git clone https://github.com/CyrilDesch/linguapipe.git
+cd linguapipe
+```
 
-- Publish a Docker image:
+### 2. Start all services with Docker Compose
 
-  ```bash
-  sbt "server/Docker/publishLocal"
-  ```
+```bash
+# Start all open-source dependencies
+docker-compose up -d
+```
 
-## Modules
+This starts the following Docker containers:
 
-- `modules/shared`: shared domain and endpoint models for the backend.
-- `modules/server`: ZIO HTTP server, repositories and services.
+- **PostgreSQL** (database) on `localhost:5432`
+- **Qdrant** (vector store) on `localhost:6333`
+- **Whisper** (transcription with faster-whisper) on `localhost:9001`
+- **Text Embeddings Inference** (HuggingFace embeddings) on `localhost:8080`
+- **MinIO** (S3-compatible storage) on `localhost:9000`
 
-Everything related to Node.js, Scala.js and Laminar has been deleted.
+All services are ready to use with **no configuration needed**. The default `application.conf` is pre-configured to use these services.
+
+### 3. Compile the project
+
+```bash
+sbt compile
+```
+
+### 4. Run the application
+
+```bash
+sbt "infrastructure/run"
+```
+
+## 🎯 Usage
+
+### Running the application
+
+```bash
+# Standard run (make sure Docker services are running first)
+sbt "infrastructure/run"
+
+# Hot reload on code changes (development)
+sbt "~infrastructure/reStart"
+
+# Test the application
+sbt test
+```
+
+## 🏗️ Architecture
+
+LinguaPipe follows **Hexagonal Architecture** (Ports & Adapters) with three distinct modules:
+
+![Hexagonal Architecture Schema](docs/hexa-schema/image.png)
+
+### `modules/domain`
+
+**Pure business logic** with zero external dependencies.
+
+### `modules/application`
+
+**Use cases and port definitions** orchestrating business workflows.
+
+### `modules/infrastructure`
+
+**Concrete implementations** of all adapters and runtime concerns.
+
+## ⚙️ Configuration
+
+LinguaPipe uses **declarative configuration** through `application.conf`. Change adapters without modifying code!
+
+### Example: Switching Database
+
+```hocon
+# PostgreSQL configuration (default)
+linguapipe.adapters.driven.database {
+  type = "postgres"
+  postgres {
+    host = "localhost"
+    port = 5432
+    database = "linguapipe"
+    user = "linguapipe"
+    password = "linguapipe"
+  }
+}
+```
+
+### Available Adapter Types
+
+| Component        | Implementation | Default (Docker) |
+| ---------------- | -------------- | ---------------- |
+| **Database**     | PostgreSQL     | PostgreSQL       |
+| **Vector Store** | Qdrant         | Qdrant           |
+| **Transcriber**  | Whisper        | Whisper          |
+| **Embedder**     | HuggingFace    | HuggingFace      |
+| **Blob Store**   | MinIO          | MinIO            |
+| **API Gateway**  | gRPC           | gRPC             |
+
+## Environment Variables
+
+The default configuration requires **no environment variables**. For production, you can override settings:
+
+```bash
+# Optional: Override database password
+export DB_PASSWORD=secret123
+
+# Optional: Override service URLs
+export QDRANT_URL=http://your-qdrant:6333
+export WHISPER_URL=http://your-whisper:9001
+export HUGGINGFACE_URL=http://your-embeddings:8080
+export MINIO_ENDPOINT=http://your-minio:9000
+
+sbt "infrastructure/run"
+```
+
+Reference them in `application.conf`:
+
+```hocon
+linguapipe.adapters.driven.database {
+  postgres {
+    password = ${?DB_PASSWORD}  # Optional override
+    host = ${?DB_HOST}          # Optional override
+  }
+}
+```
+
+## Extending LinguaPipe
+
+### Adding a Driven Adapter
+
+To add a new driven adapter (e.g., Redis, MongoDB, etc.):
+
+1. Define the port interface in `modules/application/ports/driven/` (if it doesn't exist)
+2. Add config types in `RuntimeConfig.scala`
+3. Implement the adapter in `modules/infrastructure/adapters/driven/[type]/[tech]/`
+4. Add factory case in `AdapterFactory.scala`
+5. Add parser logic in `ConfigLoader.scala`
+6. Document it in `application.conf`
+7. (Optional) Add Docker service to `docker-compose.yml`
+
+### Adding a Driving Adapter
+
+To add a new driving adapter (e.g., WebSocket, CLI, etc.):
+
+1. Define the driving port in `modules/application/ports/driving/`
+2. Add config types in `RuntimeConfig.scala`
+3. Implement the adapter in `modules/infrastructure/adapters/driving/[tech]/`
+4. Wire it in the runtime module with ZIO layers
+5. Update `application.conf` with the new adapter configuration
+
+### Development Workflow
+
+1. Model domain entities in `modules/domain`
+2. Define ports in `modules/application/ports`
+3. Implement use cases in `modules/application/usecase`
+4. Create adapters in `modules/infrastructure/adapters`
+5. Wire everything in `modules/infrastructure/runtime`
+6. Configure in `application.conf`
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+sbt test
+
+# Run tests for a specific module
+sbt domain/test
+sbt application/test
+sbt infrastructure/test
+
+# Run tests with coverage
+sbt coverage test coverageReport
+```
+
+### Testing Strategy
+
+- **Domain tests**: Pure unit tests, no ZIO runtime needed
+- **Infrastructure tests**: Integration tests with real adapters (or testcontainers)
+
+## 📚 Documentation
+
+- **Architecture**: Hexagonal architecture principles and module structure (see Architecture section above)
+- **Configuration**: Declarative adapter configuration system (see Configuration section above)
+- **Cursor Rules**: `.cursor/rules/` - AI-assisted development guidelines
+
+## 🤝 Contributing
+
+We welcome contributions! This is an open-source project following strict architectural principles.
+
+### Guidelines
+
+- ✅ Follow hexagonal architecture boundaries
+- ✅ Keep domain module pure (no external dependencies)
+- ✅ Add tests for new features
+- ✅ Fix all compiler and linter warnings
+- ✅ Update configuration documentation when adding adapters
+- ✅ Write clear commit messages
+
+### Code Quality Standards
+
+- Zero compiler warnings
+- Zero linter warnings
+- Explicit type signatures for all public APIs
+- Immutable domain types
+- Typed errors (no raw exceptions)
+- HOCON configuration with type-safe parsing
+
+## 📄 License
+
+[GNU General Public License v3.0](LICENSE)
+
+## 🙏 Acknowledgments
+
+Built with:
+
+- [Scala 3](https://www.scala-lang.org/) - Modern functional programming
+- [ZIO](https://zio.dev/) - Type-safe, composable concurrency
+- [gRPC](https://grpc.io/) - High-performance RPC framework
