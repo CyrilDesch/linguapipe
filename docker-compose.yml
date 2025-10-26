@@ -1,12 +1,107 @@
 services:
+  # PostgreSQL Database
   db:
-    image: postgres
+    image: postgres:16-alpine
     restart: always
     volumes:
-      - "./db:/docker-entrypoint-initdb.d"
+      - "postgres_data:/var/lib/postgresql/data"
     environment:
-      - "POSTGRES_USER=docker"
-      - "POSTGRES_PASSWORD=docker"
+      - "POSTGRES_USER=linguapipe"
+      - "POSTGRES_PASSWORD=linguapipe"
+      - "POSTGRES_DB=linguapipe"
     ports:
       - "5432:5432"
-    command: ["postgres", "-c", "log_statement=all"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U linguapipe"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Qdrant Vector Database
+  qdrant:
+    image: qdrant/qdrant:latest
+    restart: always
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - "qdrant_data:/qdrant/storage"
+    healthcheck:
+      test:
+        ["CMD", "bash", "-c", "timeout 5 bash -c '</dev/tcp/localhost/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Whisper Transcription Service
+  whisper:
+    image: onerahmet/openai-whisper-asr-webservice:latest
+    restart: always
+    ports:
+      - "9001:9000"
+    environment:
+      - "ASR_MODEL=base"
+      - "ASR_ENGINE=openai_whisper"
+    volumes:
+      - "whisper_models:/root/.cache/whisper"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:9000/docs",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # Text Embeddings Service
+  embedder:
+    image: semitechnologies/transformers-inference:sentence-transformers-all-MiniLM-L6-v2
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      - "ENABLE_CUDA=0"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8080/.well-known/ready')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # MinIO (S3-compatible object storage)
+  minio:
+    image: minio/minio:latest
+    restart: always
+    ports:
+      - "9000:9000"
+      - "9090:9090"
+    environment:
+      - "MINIO_ROOT_USER=minioadmin"
+      - "MINIO_ROOT_PASSWORD=minioadmin"
+    volumes:
+      - "minio_data:/data"
+    command: server /data --console-address ":9090"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  postgres_data:
+  qdrant_data:
+  whisper_models:
+  minio_data:

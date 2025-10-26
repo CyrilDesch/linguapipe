@@ -1,0 +1,47 @@
+@startuml
+skinparam defaultTextAlignment center
+skinparam component {
+    BackgroundColor #FFF8DC
+    BorderColor #333333
+    FontSize 12
+    RoundCorner 10
+}
+skinparam package {
+    BorderColor #333333
+    BackgroundColor #FAFAD2
+    FontSize 14
+    RoundCorner 20
+}
+
+' Application core (Domain + Ports)
+package "Application\nBusiness logic" as application {
+
+    component "Driving Port\n(application/ports/driving)" as drivingPort #F5F5F5
+    hexagon "**Domain**\nBusiness Entities\n(domain)" as domain #FFF8DC
+    component "Driven Port\n(application/ports/driven)" as drivenPort #F5F5F5
+
+    ' Inside core flow
+    drivingPort --> domain
+    domain --> drivenPort
+}
+
+' Driving Adapters (modules/infrastructure/adapters/driving)
+component "Gateway Adapter\n(adapters/driving/gateway)" as grpc #FFE4B5
+
+' Driven Adapters (modules/infrastructure/adapters/driven)
+component "Database Adapter\n(infrastructure/adapters/driven/database)" as db #FFE4B5
+component "Vector Store Adapter\n(infrastructure/adapters/driven/vectorstore)" as vector #FFE4B5
+component "Transcription Adapter\n(infrastructure/adapters/driven/transcription)" as transcription #FFE4B5
+component "Embedding Adapter\n(infrastructure/adapters/driven/embedding)" as embedding #FFE4B5
+component "BlobStore Adapter\n(infrastructure/adapters/driven/blob)" as embedding #FFE4B5
+
+' Driving side connections (inbound into app)
+grpc --> drivingPort
+
+' Driven side connections (outbound from app)
+drivenPort --> db
+drivenPort --> vector
+drivenPort --> transcription
+drivenPort --> embedding
+
+@enduml

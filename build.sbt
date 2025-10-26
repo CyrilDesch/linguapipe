@@ -3,7 +3,7 @@ import DeploymentSettings._
 
 val scala3 = "3.7.3"
 
-name := "TP_API"
+name := "LinguaPipe"
 
 inThisBuild(
   List(
@@ -22,46 +22,48 @@ inThisBuild(
   )
 )
 
-// Aggregate root project
-// This is the root project that aggregates all other projects
-// It is used to run tasks on all projects at once.
 lazy val root = project
   .in(file("."))
-  .aggregate(server, shared)
+  .aggregate(
+    domain,
+    application,
+    infrastructure
+  )
   .disablePlugins(RevolverPlugin)
   .settings(
     publish / skip := true
   )
 
-//
-// Server project depending on the shared domain module.
-//
-lazy val server = project
-  .in(file("modules/server"))
-  .enablePlugins(JavaAppPackaging, DockerPlugin, AshScriptPlugin)
+lazy val domain = project
+  .in(file("modules/domain"))
+  .disablePlugins(RevolverPlugin)
   .settings(
-    fork := true,
-    serverLibraryDependencies,
-    testingLibraryDependencies
+    domainLibraryDependencies,
+    publish / skip := true
+  )
+
+lazy val application = project
+  .in(file("modules/application"))
+  .disablePlugins(RevolverPlugin)
+  .dependsOn(domain)
+  .settings(
+    applicationLibraryDependencies,
+    publish / skip := true
+  )
+
+lazy val infrastructure = project
+  .in(file("modules/infrastructure"))
+  .enablePlugins(JavaAppPackaging, DockerPlugin, AshScriptPlugin)
+  .dependsOn(application)
+  .settings(
+    fork      := true,
+    mainClass := Some("linguapipe.infrastructure.Main"),
+    infrastructureLibraryDependencies,
+    testingLibraryDependencies,
+    publish / skip := true
   )
   .settings(dockerSettings)
-  .dependsOn(shared)
-  .settings(
-    publish / skip := true
-  )
-
-//
-// Shared project
-//
-lazy val shared = project
-  .in(file("modules/shared"))
-  .disablePlugins(RevolverPlugin)
-  .settings(
-    sharedLibraryDependencies
-  )
-  .settings(
-    publish / skip := true
-  )
+  .settings(assemblySettings)
 
 Test / fork := false
 
@@ -86,4 +88,23 @@ lazy val dockerSettings = {
     case false =>
       Seq()
   })
+}
+
+lazy val assemblySettings = {
+  import sbtassembly.AssemblyPlugin.autoImport._
+  import sbtassembly.MergeStrategy
+  Seq(
+    assembly / assemblyMergeStrategy := {
+      case PathList("deriving.conf")                                  => MergeStrategy.concat
+      case PathList("scala", "annotation", "unroll.tasty")            => MergeStrategy.first
+      case PathList("scala", "annotation", "unroll.class")            => MergeStrategy.first
+      case PathList("module-info.class")                              => MergeStrategy.discard
+      case PathList("META-INF", "versions", "9", "module-info.class") => MergeStrategy.discard
+      case PathList("META-INF", "io.netty.versions.properties")       => MergeStrategy.first
+      case x if x.contains("io/getquill/")                            => MergeStrategy.first
+      case x                                                          =>
+        val oldStrategy = (assembly / assemblyMergeStrategy).value
+        oldStrategy(x)
+    }
+  )
 }

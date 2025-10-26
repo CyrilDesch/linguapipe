@@ -43,7 +43,7 @@ sbt compile
 
 # Run tests to ensure everything is working
 echo "🧪 Running tests..."
-sbt "server/test"
+sbt test
 
 echo ""
 echo "✅ Setup completed successfully!"
@@ -51,6 +51,6 @@ echo ""
 echo "🎯 Next steps:"
 echo "   • Run the server: ./scripts/serverRun.sh"
 echo "   • Or run in foreground: ./scripts/backendRun.sh"
-echo "   • Or use sbt directly: sbt 'server/run'"
+echo "   • Or use sbt directly: sbt 'infrastructure/run'"
 echo ""
 echo "📚 For more information, see README.md"
