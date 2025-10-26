@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-echo "🚀 Setting up NapNotes Backend..."
+echo "🚀 Setting up LinguaPipe..."
 
 # Check prerequisites
 echo "📋 Checking prerequisites..."

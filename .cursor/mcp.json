@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "napnotes-back-linguapipe-metals": {
+    "linguapipe-metals": {
       "url": "http://localhost:58150/sse"
     }
   }
