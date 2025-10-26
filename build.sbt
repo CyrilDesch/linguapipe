@@ -1,5 +1,5 @@
-import Dependencies._
-import DeploymentSettings._
+import Dependencies.*
+import DeploymentSettings.*
 
 val scala3 = "3.7.3"
 
@@ -72,22 +72,16 @@ lazy val dockerSettings = {
   import DockerPlugin.globalSettings._
   import sbt.Keys._
   Seq(
-    Docker / maintainer     := "Joh doe",
-    Docker / dockerUsername := Some("johndoe"),
-    Docker / packageName    := "tp_api",
-    dockerBaseImage         := "azul/zulu-openjdk-alpine:24-latest",
-    dockerRepository        := Some("registry.orb.local"),
+    Docker / maintainer     := "Cyril Deschamps",
+    Docker / dockerUsername := Some("cyril-deschamps"),
+    Docker / packageName    := "linguapipe",
+    dockerBaseImage         := "azul/zulu-openjdk-alpine:21-jre-headless",
+    dockerRepository        := Some("ghcr.io"),
     dockerUpdateLatest      := true,
-    dockerExposedPorts      := Seq(8000)
-  ) ++ (overrideDockerRegistry match {
-    case true =>
-      Seq(
-        Docker / dockerRepository := Some("registry.orb.local"),
-        Docker / dockerUsername   := Some("napnotes-backend")
-      )
-    case false =>
-      Seq()
-  })
+    dockerExposedPorts      := Seq(8000),
+    // Use a simple tag format without version to avoid invalid characters
+    Docker / version := "latest"
+  )
 }
 
 lazy val assemblySettings = {
@@ -105,6 +99,20 @@ lazy val assemblySettings = {
       case x                                                          =>
         val oldStrategy = (assembly / assemblyMergeStrategy).value
         oldStrategy(x)
+    },
+    // Exclude unnecessary files to reduce JAR size
+    assembly / assemblyExcludedJars := {
+      val cp = (assembly / fullClasspath).value
+      cp.filter { file =>
+        val name = file.data.getName
+        name.contains("scala-compiler") ||
+        name.contains("scala-reflect") ||
+        name.contains("scalap") ||
+        name.contains("test") ||
+        name.contains("junit") ||
+        name.contains("scalatest") ||
+        name.contains("munit")
+      }
     }
   )
 }
