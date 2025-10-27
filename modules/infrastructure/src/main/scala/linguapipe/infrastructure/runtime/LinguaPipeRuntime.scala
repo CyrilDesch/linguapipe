@@ -5,28 +5,26 @@ import zio.*
 import linguapipe.application.ports.driving.HealthCheckPort
 import linguapipe.domain.HealthStatus
 
-/** Entry point assembling runtime layers. */
 object LinguaPipeRuntime {
-  def make(healthCheckPort: HealthCheckPort): UIO[Unit] =
+  def make: ZIO[HealthCheckPort, Throwable, Unit] =
     for {
-      _             <- ZIO.logInfo("🔍 Running health checks...")
-      healthResults <- healthCheckPort.checkAllServices().orElse(ZIO.succeed(List.empty))
-      _             <- logHealthResults(healthResults)
-      _             <- ZIO.logInfo("✅ All systems operational")
+      healthCheckPort <- ZIO.service[HealthCheckPort]
+      _               <- ZIO.logInfo("Running health checks...")
+      healthResults   <- healthCheckPort.checkAllServices().orElse(ZIO.succeed(List.empty))
+      _               <- logHealthResults(healthResults)
+      _               <- ZIO.logInfo("All systems operational")
     } yield ()
 
-  private def logHealthResults(results: List[HealthStatus]): UIO[Unit] =
+  private def logHealthResults(results: List[HealthStatus]): ZIO[Any, Throwable, Unit] =
     ZIO
       .foreach(results) { status =>
         status match {
-          case HealthStatus.Healthy(serviceName, _, details) =>
-            val detailsStr = if (details.nonEmpty) s" (${details.mkString(", ")})" else ""
-            ZIO.logInfo(s"  ✅ $serviceName$detailsStr")
-          case HealthStatus.Unhealthy(serviceName, _, error, details) =>
-            val detailsStr = if (details.nonEmpty) s" (${details.mkString(", ")})" else ""
-            ZIO.logWarning(s"  ❌ $serviceName: $error$detailsStr")
+          case HealthStatus.Healthy(serviceName, _, _) =>
+            ZIO.logInfo(s"✓ $serviceName")
+          case HealthStatus.Unhealthy(serviceName, _, error, _) =>
+            ZIO.logWarning(s"✗ $serviceName: $error")
           case HealthStatus.Timeout(serviceName, _, timeoutMs) =>
-            ZIO.logWarning(s"  ⏰ $serviceName: timeout after ${timeoutMs}ms")
+            ZIO.logWarning(s"✗ $serviceName: timeout after ${timeoutMs}ms")
         }
       }
       .unit

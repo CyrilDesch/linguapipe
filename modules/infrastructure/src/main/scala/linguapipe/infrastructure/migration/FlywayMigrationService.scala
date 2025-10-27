@@ -5,10 +5,6 @@ import zio.*
 
 import linguapipe.infrastructure.config.DatabaseAdapterConfig
 
-/**
- * Flyway-based database migration service. This is an infrastructure concern
- * that runs SQL migrations at application startup.
- */
 trait MigrationService {
   def runMigrations(): Task[Unit]
 }
@@ -38,12 +34,12 @@ final class FlywayMigrationService(config: DatabaseAdapterConfig) extends Migrat
       migrationsApplied.migrationsExecuted
     }.flatMap { count =>
       if (count > 0) {
-        ZIO.logInfo(s"✅ Applied $count database migration(s)")
+        ZIO.logInfo(s"Applied $count database migration(s)")
       } else {
-        ZIO.logInfo("✅ Database schema is up to date")
+        ZIO.logInfo("Database schema is up to date")
       }
     }.catchAll { error =>
-      ZIO.logError(s"❌ Database migration failed: ${error.getMessage}") *>
+      ZIO.logError(s"Database migration failed: ${error.getMessage}") *>
         ZIO.fail(error)
     }
   }

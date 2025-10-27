@@ -8,7 +8,6 @@ import linguapipe.application.ports.driven.*
 import linguapipe.application.ports.driving.*
 import linguapipe.domain.*
 
-/** Use case orchestrating ingestion via driven ports. */
 final class DefaultIngestPipeline(
   transcriber: TranscriberPort,
   embedder: EmbedderPort,

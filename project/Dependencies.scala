@@ -61,7 +61,8 @@ object Dependencies {
   val domainLibraryDependencies: Setting[Seq[ModuleID]] =
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio-prelude"          % Versions.zioPrelude,
-      "dev.zio" %% "zio-prelude-magnolia" % Versions.zioPrelude
+      "dev.zio" %% "zio-prelude-magnolia" % Versions.zioPrelude,
+      "dev.zio" %% "zio-json"             % "0.7.0"
     )
 
   val applicationLibraryDependencies: Setting[Seq[ModuleID]] =

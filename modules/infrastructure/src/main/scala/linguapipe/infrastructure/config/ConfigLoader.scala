@@ -3,21 +3,14 @@ package linguapipe.infrastructure.config
 import com.typesafe.config.{Config, ConfigFactory}
 import zio.*
 
-/**
- * Charge la configuration depuis application.conf et crée les instances de
- * configuration typées.
- */
 object ConfigLoader {
 
-  /**
-   * Charge la configuration complète depuis application.conf
-   */
   def load: Task[RuntimeConfig] = ZIO.attempt {
     val config = ConfigFactory.load().getConfig("linguapipe")
 
     RuntimeConfig(
       environment = config.getString("runtime.environment"),
-      grpc = loadGrpcConfig(config),
+      api = loadApiConfig(config),
       adapters = loadAdaptersConfig(config),
       migrations = loadMigrationConfig(config)
     )
@@ -33,10 +26,10 @@ object ConfigLoader {
       } else true
     )
 
-  private def loadGrpcConfig(config: Config): GrpcConfig =
-    GrpcConfig(
-      host = config.getString("grpc.host"),
-      port = config.getInt("grpc.port")
+  private def loadApiConfig(config: Config): ApiConfig =
+    ApiConfig(
+      host = config.getString("api.host"),
+      port = config.getInt("api.port")
     )
 
   private def loadAdaptersConfig(config: Config): AdaptersConfig =
@@ -140,12 +133,18 @@ object ConfigLoader {
 
   private def loadDrivingAdaptersConfig(config: Config): DrivingAdaptersConfig =
     DrivingAdaptersConfig(
-      api = loadApiConfig(config.getConfig("api"))
+      api = loadApiAdapterConfig(config.getConfig("api"))
     )
 
-  private def loadApiConfig(config: Config): ApiAdapterConfig = {
+  private def loadApiAdapterConfig(config: Config): ApiAdapterConfig = {
     val apiType = config.getString("type")
     apiType match {
+      case "rest" =>
+        val restConfig = config.getConfig("rest")
+        ApiAdapterConfig.REST(
+          host = restConfig.getString("host"),
+          port = restConfig.getInt("port")
+        )
       case "grpc" =>
         val grpcConfig = config.getConfig("grpc")
         ApiAdapterConfig.GRPC(
