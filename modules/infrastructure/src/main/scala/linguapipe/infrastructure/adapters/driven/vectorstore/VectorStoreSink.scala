@@ -1,27 +1,23 @@
 package linguapipe.infrastructure.adapters.driven.vectorstore
 
 import java.time.Instant
+import java.util.UUID
 
 import zio.*
 
 import linguapipe.application.ports.driven.VectorSinkPort
-import linguapipe.domain.{HealthStatus, SegmentId, TranscriptId}
+import linguapipe.domain.HealthStatus
 
-/**
- * Vector store adapter supporting multiple providers (Pinecone, Qdrant,
- * Weaviate).
- */
 final class VectorStoreSink(provider: String = "inmemory") extends VectorSinkPort {
   override def upsertEmbeddings(
-    transcriptId: TranscriptId,
-    vectors: List[(SegmentId, Array[Float])]
+    transcriptId: UUID,
+    vectors: List[(UUID, Array[Float])]
   ): Task[Unit] =
-    ZIO.succeed(println(s"[VectorStore:$provider] Upsert ${vectors.size} vectors for ${transcriptId.value}"))
+    ZIO.succeed(println(s"[VectorStore:$provider] Upsert ${vectors.size} vectors for $transcriptId"))
 
   override def healthCheck(): Task[HealthStatus] =
     ZIO.attempt {
-      // In a real implementation, this would test the vector store connection
-      val isHealthy = true // This would be replaced with actual connection test
+      val isHealthy = true
 
       if (isHealthy) {
         HealthStatus.Healthy(

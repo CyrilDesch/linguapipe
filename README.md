@@ -1,4 +1,4 @@
-# LinguaPipe
+# LinguaPipe (still in development)
 
 **A modular, production-ready Scala pipeline for transforming audio, text, and PDFs into searchable knowledge.**
 
@@ -14,6 +14,17 @@ LinguaPipe is designed with **Hexagonal Architecture** principles, making it eas
 - Expose APIs via gRPC
 - Switch adapters through config files without changing code
 - Built with hexagonal architecture for clean testing and extension
+
+## Roadmap
+
+- [x] Implement REST Gateway
+- [ ] Implement a Transcriber Adapter
+- [ ] Allow audio ingestion
+- [ ] Implement a Database Adapter
+- [ ] Implement an Embedder Adapter
+- [ ] Implement a Vector Store Adapter
+- [ ] Implement a Blob Store Adapter
+- [ ] Allow text and PDF ingestion
 
 ## 📋 Prerequisites
 

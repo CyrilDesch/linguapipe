@@ -6,7 +6,6 @@ import linguapipe.application.ports.driven.*
 import linguapipe.application.ports.driving.HealthCheckPort
 import linguapipe.domain.HealthStatus
 
-/** Use case for health check operations */
 final class DefaultHealthCheckUseCase(
   transcriber: TranscriberPort,
   embedder: EmbedderPort,

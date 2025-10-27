@@ -1,5 +1,7 @@
 package linguapipe.application.ports.driven
 
+import java.util.UUID
+
 import zio.*
 
 import linguapipe.domain.{HealthStatus, IngestPayload, *}
@@ -21,11 +23,11 @@ trait DbSinkPort {
 }
 
 trait VectorSinkPort {
-  def upsertEmbeddings(transcriptId: TranscriptId, vectors: List[(SegmentId, Array[Float])]): Task[Unit]
+  def upsertEmbeddings(transcriptId: UUID, vectors: List[(UUID, Array[Float])]): Task[Unit]
   def healthCheck(): Task[HealthStatus]
 }
 
 trait BlobStorePort {
-  def store(jobId: IngestionJobId, payload: IngestPayload): Task[Unit]
+  def store(jobId: UUID, payload: IngestPayload): Task[Unit]
   def healthCheck(): Task[HealthStatus]
 }

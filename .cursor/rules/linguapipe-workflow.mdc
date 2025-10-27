@@ -108,3 +108,4 @@ This is an **open source project**:
 - Add tests for new functionality
 - Don't write documentation files to explain what you did
 - Don't overcomment your code
+- Always write in english, even if the code or prompt is in another language

@@ -2,16 +2,15 @@ package linguapipe.domain
 
 import java.time.Instant
 
-/** Health status of an adapter or service */
+import zio.json.*
+
 enum HealthStatus:
-  /** Service is healthy and operational */
   case Healthy(
     serviceName: String,
     checkedAt: Instant,
     details: Map[String, String] = Map.empty
   )
 
-  /** Service is unhealthy or unreachable */
   case Unhealthy(
     serviceName: String,
     checkedAt: Instant,
@@ -19,9 +18,13 @@ enum HealthStatus:
     details: Map[String, String] = Map.empty
   )
 
-  /** Service health check timed out */
   case Timeout(
     serviceName: String,
     checkedAt: Instant,
     timeoutMs: Long
   )
+
+object HealthStatus {
+  given JsonEncoder[HealthStatus] = DeriveJsonEncoder.gen[HealthStatus]
+  given JsonDecoder[HealthStatus] = DeriveJsonDecoder.gen[HealthStatus]
+}
