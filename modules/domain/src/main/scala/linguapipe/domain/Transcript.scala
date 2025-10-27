@@ -5,27 +5,12 @@ import java.util.UUID
 
 import zio.json.*
 
-final case class Segment(
-  id: UUID,
-  transcriptId: UUID,
-  text: String,
-  startAt: Option[Instant],
-  endAt: Option[Instant],
-  metadata: SegmentMetadata
-)
-
 final case class Transcript(
   id: UUID,
   language: String,
-  segments: List[Segment],
+  text: String,
   createdAt: Instant,
   metadata: TranscriptMetadata
-)
-
-final case class SegmentMetadata(
-  speaker: Option[String],
-  confidence: Option[Double],
-  tags: Set[String]
 )
 
 final case class TranscriptMetadata(
@@ -33,19 +18,29 @@ final case class TranscriptMetadata(
   attributes: Map[String, String]
 )
 
-object Segment {
-  given JsonEncoder[Segment] = DeriveJsonEncoder.gen[Segment]
-  given JsonDecoder[Segment] = DeriveJsonDecoder.gen[Segment]
-}
-
 object Transcript {
   given JsonEncoder[Transcript] = DeriveJsonEncoder.gen[Transcript]
   given JsonDecoder[Transcript] = DeriveJsonDecoder.gen[Transcript]
-}
 
-object SegmentMetadata {
-  given JsonEncoder[SegmentMetadata] = DeriveJsonEncoder.gen[SegmentMetadata]
-  given JsonDecoder[SegmentMetadata] = DeriveJsonDecoder.gen[SegmentMetadata]
+  def fromText(
+    content: String,
+    language: Option[String],
+    baseMetadata: TranscriptMetadata
+  ): Transcript = {
+    val transcriptId = UUID.randomUUID()
+    val now          = Instant.now()
+
+    Transcript(
+      id = transcriptId,
+      language = language.getOrElse("unknown"),
+      text = content,
+      createdAt = now,
+      metadata = baseMetadata.copy(
+        source = IngestSource.Text,
+        attributes = baseMetadata.attributes + ("processing_method" -> "direct_text")
+      )
+    )
+  }
 }
 
 object TranscriptMetadata {

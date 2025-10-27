@@ -7,23 +7,22 @@ import zio.*
 import linguapipe.domain.{HealthStatus, IngestPayload, *}
 
 trait TranscriberPort {
-  def transcribe(payload: IngestPayload): Task[Transcript]
+  def transcribe(payload: IngestPayload.Base64Audio): Task[Transcript]
   def healthCheck(): Task[HealthStatus]
 }
 
 trait EmbedderPort {
-  def embed(segment: Segment): Task[Array[Float]]
+  def embed(transcript: Transcript): Task[Array[Float]]
   def healthCheck(): Task[HealthStatus]
 }
 
 trait DbSinkPort {
   def persistTranscript(transcript: Transcript): Task[Unit]
-  def persistSegments(segments: List[Segment]): Task[Unit]
   def healthCheck(): Task[HealthStatus]
 }
 
 trait VectorSinkPort {
-  def upsertEmbeddings(transcriptId: UUID, vectors: List[(UUID, Array[Float])]): Task[Unit]
+  def upsertEmbeddings(transcriptId: UUID, vectors: List[Array[Float]]): Task[Unit]
   def healthCheck(): Task[HealthStatus]
 }
 

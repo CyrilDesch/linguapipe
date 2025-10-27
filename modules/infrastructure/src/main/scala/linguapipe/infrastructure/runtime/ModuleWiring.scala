@@ -15,18 +15,20 @@ object ModuleWiring {
         config        <- ZIO.service[RuntimeConfig]
         adaptersConfig = config.adapters.driven
 
-        transcriber = AdapterFactory.createTranscriberAdapter(adaptersConfig.transcriber)
-        embedder    = AdapterFactory.createEmbedderAdapter(adaptersConfig.embedder)
-        dbSink      = AdapterFactory.createDatabaseAdapter(adaptersConfig.database)
-        vectorSink  = AdapterFactory.createVectorStoreAdapter(adaptersConfig.vectorStore)
-        blobStore   = AdapterFactory.createBlobStoreAdapter(adaptersConfig.blobStore)
+        transcriber    = AdapterFactory.createTranscriberAdapter(adaptersConfig.transcriber)
+        embedder       = AdapterFactory.createEmbedderAdapter(adaptersConfig.embedder)
+        dbSink         = AdapterFactory.createDatabaseAdapter(adaptersConfig.database)
+        vectorSink     = AdapterFactory.createVectorStoreAdapter(adaptersConfig.vectorStore)
+        blobStore      = AdapterFactory.createBlobStoreAdapter(adaptersConfig.blobStore)
+        documentParser = AdapterFactory.createDocumentParserAdapter()
 
       } yield new DefaultIngestPipeline(
         transcriber = transcriber,
         embedder = embedder,
         dbSink = dbSink,
         vectorSink = vectorSink,
-        blobStore = blobStore
+        blobStore = blobStore,
+        documentParser = documentParser
       )
     }
 

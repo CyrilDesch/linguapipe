@@ -3,8 +3,9 @@ package linguapipe.infrastructure.config
 import linguapipe.application.ports.driven.*
 import linguapipe.infrastructure.adapters.driven.blobstore.MinioAdapter
 import linguapipe.infrastructure.adapters.driven.database.postgres.PostgresTranscriptSink
+import linguapipe.infrastructure.adapters.driven.documentparser.PdfBoxParser
 import linguapipe.infrastructure.adapters.driven.embedder.EmbeddingService
-import linguapipe.infrastructure.adapters.driven.transcriptor.TranscriptionService
+import linguapipe.infrastructure.adapters.driven.transcriber.WhisperAdapter
 import linguapipe.infrastructure.adapters.driven.vectorstore.VectorStoreSink
 import linguapipe.infrastructure.adapters.driving.Gateway
 import linguapipe.infrastructure.adapters.driving.gateway.rest.IngestRestGateway
@@ -26,7 +27,7 @@ object AdapterFactory {
   def createTranscriberAdapter(config: TranscriberAdapterConfig): TranscriberPort =
     config match {
       case cfg: TranscriberAdapterConfig.Whisper =>
-        new TranscriptionService(s"whisper:${cfg.modelPath}")
+        new WhisperAdapter(cfg)
     }
 
   def createEmbedderAdapter(config: EmbedderAdapterConfig): EmbedderPort =
@@ -40,6 +41,9 @@ object AdapterFactory {
       case cfg: BlobStoreAdapterConfig.MinIO =>
         new MinioAdapter(cfg.endpoint, cfg.accessKey, cfg.secretKey, cfg.bucket)
     }
+
+  def createDocumentParserAdapter(): DocumentParserPort =
+    new PdfBoxParser()
 
   def createGateway(config: ApiAdapterConfig): Gateway =
     config match {

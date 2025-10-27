@@ -5,11 +5,11 @@ import java.time.Instant
 import zio.*
 
 import linguapipe.application.ports.driven.EmbedderPort
-import linguapipe.domain.{HealthStatus, Segment}
+import linguapipe.domain.{HealthStatus, Transcript}
 
 final class EmbeddingService(provider: String = "mock") extends EmbedderPort {
 
-  override def embed(segment: Segment): Task[Array[Float]] =
+  override def embed(transcript: Transcript): Task[Array[Float]] =
     ZIO.succeed(Array.fill(384)(0.1f))
 
   override def healthCheck(): Task[HealthStatus] =

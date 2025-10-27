@@ -11,7 +11,7 @@ import linguapipe.domain.HealthStatus
 final class VectorStoreSink(provider: String = "inmemory") extends VectorSinkPort {
   override def upsertEmbeddings(
     transcriptId: UUID,
-    vectors: List[(UUID, Array[Float])]
+    vectors: List[Array[Float]]
   ): Task[Unit] =
     ZIO.succeed(println(s"[VectorStore:$provider] Upsert ${vectors.size} vectors for $transcriptId"))
 
