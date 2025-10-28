@@ -3,7 +3,7 @@ package com.cyrelis.linguapipe.infrastructure
 import zio.*
 
 import com.cyrelis.linguapipe.application.ports.driving.{HealthCheckPort, IngestPort}
-import com.cyrelis.linguapipe.domain.HealthStatus
+import com.cyrelis.linguapipe.application.types.HealthStatus
 import com.cyrelis.linguapipe.infrastructure.adapters.driving.Gateway
 import com.cyrelis.linguapipe.infrastructure.config.RuntimeConfig
 import com.cyrelis.linguapipe.infrastructure.migration.MigrationRunner

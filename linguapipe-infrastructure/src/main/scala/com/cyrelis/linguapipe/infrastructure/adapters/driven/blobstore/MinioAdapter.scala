@@ -6,7 +6,7 @@ import java.util.UUID
 import zio.*
 
 import com.cyrelis.linguapipe.application.ports.driven.BlobStorePort
-import com.cyrelis.linguapipe.domain.HealthStatus
+import com.cyrelis.linguapipe.application.types.HealthStatus
 
 final class MinioAdapter(endpoint: String, accessKey: String, secretKey: String, bucket: String) extends BlobStorePort {
   override def storeAudio(jobId: UUID, audioContent: String, format: String): Task[Unit] =

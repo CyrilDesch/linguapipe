@@ -12,7 +12,8 @@ object ConfigLoader {
       environment = config.getString("runtime.environment"),
       api = loadApiConfig(config),
       adapters = loadAdaptersConfig(config),
-      migrations = loadMigrationConfig(config)
+      migrations = loadMigrationConfig(config),
+      fixtures = loadFixtureConfig(config)
     )
   }
 
@@ -24,6 +25,13 @@ object ConfigLoader {
       failOnError = if (config.hasPath("migrations.fail-on-error")) {
         config.getBoolean("migrations.fail-on-error")
       } else true
+    )
+
+  private def loadFixtureConfig(config: Config): FixtureConfig =
+    FixtureConfig(
+      loadOnStartup = if (config.hasPath("fixtures.load-on-startup")) {
+        config.getBoolean("fixtures.load-on-startup")
+      } else false
     )
 
   private def loadApiConfig(config: Config): ApiConfig =

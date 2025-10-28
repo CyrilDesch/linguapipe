@@ -1,8 +1,7 @@
 package com.cyrelis.linguapipe.infrastructure.migration
 
-import zio.*
-
 import com.cyrelis.linguapipe.infrastructure.config.{BlobStoreAdapterConfig, RuntimeConfig, VectorStoreAdapterConfig}
+import zio.*
 
 /**
  * Orchestrates all migration and initialization tasks at application startup.
@@ -12,11 +11,13 @@ object MigrationRunner {
 
   def runAll(): ZIO[RuntimeConfig, Throwable, Unit] =
     for {
-      _ <- ZIO.logInfo("Starting migration and initialization...")
-      _ <- runDatabaseMigrations()
-      _ <- initializeVectorStore()
-      _ <- initializeBlobStore()
-      _ <- ZIO.logInfo("All migrations and initializations completed successfully")
+      config <- ZIO.service[RuntimeConfig]
+      _      <- ZIO.logInfo("Starting migration and initialization...")
+      _      <- runDatabaseMigrations()
+      _      <- if (config.fixtures.loadOnStartup) loadDatabaseFixtures() else ZIO.unit
+      _      <- initializeVectorStore()
+      _      <- initializeBlobStore()
+      _      <- ZIO.logInfo("All migrations and initializations completed successfully")
     } yield ()
 
   private def runDatabaseMigrations(): ZIO[RuntimeConfig, Throwable, Unit] =
@@ -25,6 +26,20 @@ object MigrationRunner {
       dbConfig         = config.adapters.driven.database
       migrationService = new FlywayMigrationService(dbConfig)
       _               <- migrationService.runMigrations()
+    } yield ()
+
+  private def loadDatabaseFixtures(): ZIO[RuntimeConfig, Throwable, Unit] =
+    for {
+      config        <- ZIO.service[RuntimeConfig]
+      dbConfig       = config.adapters.driven.database
+      fixtureService = new com.cyrelis.linguapipe.infrastructure.fixtures.DatabaseFixtureService(dbConfig)
+      hasData       <- fixtureService.hasData()
+      _             <- if (hasData) {
+        ZIO.logInfo("Database already contains data, skipping fixtures")
+      } else {
+        ZIO.logInfo("Database is empty, loading fixtures") *>
+          fixtureService.loadFixtures()
+      }
     } yield ()
 
   private def initializeVectorStore(): ZIO[RuntimeConfig, Throwable, Unit] =

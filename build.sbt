@@ -60,7 +60,7 @@ lazy val `linguapipe-application` = project
 
 lazy val `linguapipe-infrastructure` = project
   .in(file("linguapipe-infrastructure"))
-  .enablePlugins(JavaAppPackaging, DockerPlugin, AshScriptPlugin)
+  .enablePlugins(JavaAppPackaging, DockerPlugin, AshScriptPlugin, RevolverPlugin)
   .dependsOn(`linguapipe-application`)
   .settings(
     fork      := true,

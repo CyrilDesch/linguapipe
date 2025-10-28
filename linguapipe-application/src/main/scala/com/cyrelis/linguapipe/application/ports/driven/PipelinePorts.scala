@@ -4,7 +4,8 @@ import java.util.UUID
 
 import zio.*
 
-import com.cyrelis.linguapipe.domain.{HealthStatus, Transcript}
+import com.cyrelis.linguapipe.application.types.HealthStatus
+import com.cyrelis.linguapipe.domain.Transcript
 
 trait TranscriberPort {
   def transcribe(audioContent: String, format: String, language: Option[String]): Task[Transcript]

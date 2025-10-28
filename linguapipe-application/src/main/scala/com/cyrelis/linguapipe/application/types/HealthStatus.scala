@@ -1,8 +1,6 @@
-package com.cyrelis.linguapipe.domain
+package com.cyrelis.linguapipe.application.types
 
 import java.time.Instant
-
-import zio.json.*
 
 enum HealthStatus:
   case Healthy(
@@ -23,8 +21,3 @@ enum HealthStatus:
     checkedAt: Instant,
     timeoutMs: Long
   )
-
-object HealthStatus {
-  given JsonEncoder[HealthStatus] = DeriveJsonEncoder.gen[HealthStatus]
-  given JsonDecoder[HealthStatus] = DeriveJsonDecoder.gen[HealthStatus]
-}

@@ -4,7 +4,7 @@ import zio.*
 import zio.test.*
 import zio.test.Assertion.*
 
-import com.cyrelis.linguapipe.domain.HealthStatus
+import com.cyrelis.linguapipe.application.types.HealthStatus
 import com.cyrelis.linguapipe.infrastructure.config.TranscriberAdapterConfig
 
 object WhisperAdapterTest extends ZIOSpecDefault {

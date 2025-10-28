@@ -4,7 +4,7 @@ import zio.*
 
 import com.cyrelis.linguapipe.application.ports.driven.*
 import com.cyrelis.linguapipe.application.ports.driving.HealthCheckPort
-import com.cyrelis.linguapipe.domain.HealthStatus
+import com.cyrelis.linguapipe.application.types.HealthStatus
 
 final class DefaultHealthCheckUseCase(
   transcriber: TranscriberPort,

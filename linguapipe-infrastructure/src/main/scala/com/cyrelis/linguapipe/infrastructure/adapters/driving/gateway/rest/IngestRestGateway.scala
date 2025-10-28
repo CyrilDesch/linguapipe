@@ -10,11 +10,12 @@ import zio.http.*
 import zio.json.*
 
 import com.cyrelis.linguapipe.application.ports.driving.{HealthCheckPort, IngestPort}
-import com.cyrelis.linguapipe.domain.*
+import com.cyrelis.linguapipe.application.types.HealthStatus
 import com.cyrelis.linguapipe.infrastructure.adapters.driving.Gateway
 import com.cyrelis.linguapipe.infrastructure.adapters.driving.gateway.rest.{
   AudioIngestRestDto,
   DocumentIngestRestDto,
+  HealthStatusRestDto,
   IngestionResultRestDto,
   TextIngestRestDto
 }
@@ -24,10 +25,10 @@ final class IngestRestGateway(
   port: Int
 ) extends Gateway {
 
-  private val healthEndpoint: PublicEndpoint[Unit, String, List[HealthStatus], Any] =
+  private val healthEndpoint: PublicEndpoint[Unit, String, List[HealthStatusRestDto], Any] =
     sttp.tapir.endpoint.get
       .in("health")
-      .out(jsonBody[List[HealthStatus]])
+      .out(jsonBody[List[HealthStatusRestDto]])
       .errorOut(stringBody)
       .description("Health check endpoint")
 
@@ -61,7 +62,12 @@ final class IngestRestGateway(
       healthCheckPort <- ZIO.service[HealthCheckPort]
     } yield ZioHttpInterpreter().toHttp(
       List(
-        healthEndpoint.zServerLogic(_ => healthCheckPort.checkAllServices().mapError(_.getMessage)),
+        healthEndpoint.zServerLogic(_ =>
+          healthCheckPort
+            .checkAllServices()
+            .map(_.map(HealthStatusRestDto.fromApplication))
+            .mapError(_.getMessage)
+        ),
         ingestAudioEndpoint.zServerLogic { req =>
           ingestPort
             .executeAudio(req.content, req.format, req.language)

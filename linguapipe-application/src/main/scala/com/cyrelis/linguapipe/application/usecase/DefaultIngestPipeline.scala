@@ -1,5 +1,6 @@
 package com.cyrelis.linguapipe.application.usecase
 
+import java.time.Instant
 import java.util.UUID
 
 import zio.*
@@ -51,7 +52,13 @@ final class DefaultIngestPipeline(
       source = IngestSource.Text,
       attributes = language.map(l => Map("language" -> l)).getOrElse(Map.empty)
     )
-    Transcript.fromText(content, language, metadata)
+    Transcript(
+      id = UUID.randomUUID(),
+      language = language.getOrElse("unknown"),
+      text = content,
+      createdAt = Instant.now(),
+      metadata = metadata
+    )
   }
 
   private def createTranscriptFromDocument(
@@ -66,6 +73,12 @@ final class DefaultIngestPipeline(
         "media_type"        -> mediaType
       ) ++ language.map(l => ("language", l))
     )
-    Transcript.fromText(extractedText, language, metadata)
+    Transcript(
+      id = UUID.randomUUID(),
+      language = language.getOrElse("unknown"),
+      text = extractedText,
+      createdAt = Instant.now(),
+      metadata = metadata
+    )
   }
 }

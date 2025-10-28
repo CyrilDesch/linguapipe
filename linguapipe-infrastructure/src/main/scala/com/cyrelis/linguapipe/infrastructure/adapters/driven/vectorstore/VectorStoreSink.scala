@@ -6,7 +6,7 @@ import java.util.UUID
 import zio.*
 
 import com.cyrelis.linguapipe.application.ports.driven.VectorSinkPort
-import com.cyrelis.linguapipe.domain.HealthStatus
+import com.cyrelis.linguapipe.application.types.HealthStatus
 
 final class VectorStoreSink(provider: String = "inmemory") extends VectorSinkPort {
   override def upsertEmbeddings(

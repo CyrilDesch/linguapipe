@@ -13,7 +13,8 @@ import zio.*
 import zio.json.*
 
 import com.cyrelis.linguapipe.application.ports.driven.TranscriberPort
-import com.cyrelis.linguapipe.domain.{HealthStatus, IngestSource, Transcript, TranscriptMetadata}
+import com.cyrelis.linguapipe.application.types.HealthStatus
+import com.cyrelis.linguapipe.domain.{IngestSource, Transcript, TranscriptMetadata}
 import com.cyrelis.linguapipe.infrastructure.config.TranscriberAdapterConfig
 
 final case class WhisperResponse(

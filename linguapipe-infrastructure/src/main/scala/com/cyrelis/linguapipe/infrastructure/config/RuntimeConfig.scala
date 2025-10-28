@@ -6,12 +6,17 @@ final case class RuntimeConfig(
   environment: String,
   api: ApiConfig,
   adapters: AdaptersConfig,
-  migrations: MigrationConfig
+  migrations: MigrationConfig,
+  fixtures: FixtureConfig
 )
 
 final case class MigrationConfig(
   runOnStartup: Boolean,
   failOnError: Boolean
+)
+
+final case class FixtureConfig(
+  loadOnStartup: Boolean
 )
 
 final case class ApiConfig(host: String, port: Int)
