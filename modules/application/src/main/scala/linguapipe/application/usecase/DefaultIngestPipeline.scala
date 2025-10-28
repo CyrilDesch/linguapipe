@@ -1,6 +1,6 @@
 package linguapipe.application.usecase
 
-import java.time.Instant
+import java.util.UUID
 
 import zio.*
 
@@ -17,69 +17,55 @@ final class DefaultIngestPipeline(
   documentParser: DocumentParserPort
 ) extends IngestPort {
 
-  override def execute(command: IngestCommand): Task[IngestionResult] =
-    command.payload match {
-      case IngestPayload.Base64Audio(content, format, language) =>
-        executeAudioIngestion(command, content, format, language)
-      case IngestPayload.InlineText(content, language) =>
-        executeTextIngestion(command, content, language)
-      case IngestPayload.Base64Document(content, mediaType, language) =>
-        executeDocumentIngestion(command, content, mediaType, language)
-    }
-
-  private def executeAudioIngestion(
-    command: IngestCommand,
-    content: String,
-    format: String,
-    language: Option[String]
-  ): Task[IngestionResult] =
+  override def executeAudio(audioContent: String, format: String, language: Option[String]): Task[Transcript] =
     for {
-      _           <- blobStore.store(command.jobId, command.payload)
-      transcript  <- transcriber.transcribe(IngestPayload.Base64Audio(content, format, language))
-      _           <- dbSink.persistTranscript(transcript)
-      embedding   <- embedder.embed(transcript)
-      _           <- vectorSink.upsertEmbeddings(transcript.id, List(embedding))
-      completedAt <- ZIO.succeed(Instant.now())
-    } yield IngestionResult(transcript.id, 1, completedAt)
+      jobId      <- ZIO.succeed(UUID.randomUUID())
+      _          <- blobStore.storeAudio(jobId, audioContent, format)
+      transcript <- transcriber.transcribe(audioContent, format, language)
+      _          <- dbSink.persistTranscript(transcript)
+      embedding  <- embedder.embed(transcript)
+      _          <- vectorSink.upsertEmbeddings(transcript.id, List(embedding))
+    } yield transcript
 
-  private def executeTextIngestion(
-    command: IngestCommand,
-    content: String,
-    language: Option[String]
-  ): Task[IngestionResult] =
+  override def executeText(textContent: String, language: Option[String]): Task[Transcript] =
     for {
-      _           <- blobStore.store(command.jobId, command.payload)
-      transcript   = Transcript.fromText(content, language, command.metadata)
-      _           <- dbSink.persistTranscript(transcript)
-      embedding   <- embedder.embed(transcript)
-      _           <- vectorSink.upsertEmbeddings(transcript.id, List(embedding))
-      completedAt <- ZIO.succeed(Instant.now())
-    } yield IngestionResult(transcript.id, 1, completedAt)
+      transcript <- ZIO.succeed(createTranscriptFromText(textContent, language))
+      _          <- dbSink.persistTranscript(transcript)
+      embedding  <- embedder.embed(transcript)
+      _          <- vectorSink.upsertEmbeddings(transcript.id, List(embedding))
+    } yield transcript
 
-  private def executeDocumentIngestion(
-    command: IngestCommand,
-    content: String,
+  override def executeDocument(documentContent: String, mediaType: String, language: Option[String]): Task[Transcript] =
+    for {
+      jobId         <- ZIO.succeed(UUID.randomUUID())
+      _             <- blobStore.storeDocument(jobId, documentContent, mediaType)
+      extractedText <- documentParser.parseDocument(documentContent, mediaType)
+      transcript    <- ZIO.succeed(createTranscriptFromDocument(extractedText, mediaType, language))
+      _             <- dbSink.persistTranscript(transcript)
+      embedding     <- embedder.embed(transcript)
+      _             <- vectorSink.upsertEmbeddings(transcript.id, List(embedding))
+    } yield transcript
+
+  private def createTranscriptFromText(content: String, language: Option[String]): Transcript = {
+    val metadata = TranscriptMetadata(
+      source = IngestSource.Text,
+      attributes = language.map(l => Map("language" -> l)).getOrElse(Map.empty)
+    )
+    Transcript.fromText(content, language, metadata)
+  }
+
+  private def createTranscriptFromDocument(
+    extractedText: String,
     mediaType: String,
     language: Option[String]
-  ): Task[IngestionResult] =
-    for {
-      _             <- blobStore.store(command.jobId, command.payload)
-      extractedText <- documentParser.parseDocument(IngestPayload.Base64Document(content, mediaType, language))
-      transcript     = Transcript.fromText(
-                     extractedText,
-                     language,
-                     command.metadata.copy(
-                       source = IngestSource.Document,
-                       attributes = command.metadata.attributes ++ Map(
-                         "processing_method" -> "document_extraction",
-                         "media_type"        -> mediaType
-                       )
-                     )
-                   )
-      _           <- dbSink.persistTranscript(transcript)
-      embedding   <- embedder.embed(transcript)
-      _           <- vectorSink.upsertEmbeddings(transcript.id, List(embedding))
-      completedAt <- ZIO.succeed(Instant.now())
-    } yield IngestionResult(transcript.id, 1, completedAt)
-
+  ): Transcript = {
+    val metadata = TranscriptMetadata(
+      source = IngestSource.Document,
+      attributes = Map(
+        "processing_method" -> "document_extraction",
+        "media_type"        -> mediaType
+      ) ++ language.map(l => ("language", l))
+    )
+    Transcript.fromText(extractedText, language, metadata)
+  }
 }

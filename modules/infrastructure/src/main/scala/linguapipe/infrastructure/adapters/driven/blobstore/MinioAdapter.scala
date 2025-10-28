@@ -6,11 +6,14 @@ import java.util.UUID
 import zio.*
 
 import linguapipe.application.ports.driven.BlobStorePort
-import linguapipe.domain.{HealthStatus, IngestPayload}
+import linguapipe.domain.HealthStatus
 
 final class MinioAdapter(endpoint: String, accessKey: String, secretKey: String, bucket: String) extends BlobStorePort {
-  override def store(jobId: UUID, payload: IngestPayload): Task[Unit] =
-    ZIO.succeed(println(s"[Minio:$endpoint] stored payload for job $jobId"))
+  override def storeAudio(jobId: UUID, audioContent: String, format: String): Task[Unit] =
+    ZIO.succeed(println(s"[Minio:$endpoint] stored audio ($format) for job $jobId"))
+
+  override def storeDocument(jobId: UUID, documentContent: String, mediaType: String): Task[Unit] =
+    ZIO.succeed(println(s"[Minio:$endpoint] stored document ($mediaType) for job $jobId"))
 
   override def healthCheck(): Task[HealthStatus] =
     ZIO.succeed(

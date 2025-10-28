@@ -4,10 +4,10 @@ import java.util.UUID
 
 import zio.*
 
-import linguapipe.domain.{HealthStatus, IngestPayload, *}
+import linguapipe.domain.{HealthStatus, Transcript}
 
 trait TranscriberPort {
-  def transcribe(payload: IngestPayload.Base64Audio): Task[Transcript]
+  def transcribe(audioContent: String, format: String, language: Option[String]): Task[Transcript]
   def healthCheck(): Task[HealthStatus]
 }
 
@@ -27,6 +27,7 @@ trait VectorSinkPort {
 }
 
 trait BlobStorePort {
-  def store(jobId: UUID, payload: IngestPayload): Task[Unit]
+  def storeAudio(jobId: UUID, audioContent: String, format: String): Task[Unit]
+  def storeDocument(jobId: UUID, documentContent: String, mediaType: String): Task[Unit]
   def healthCheck(): Task[HealthStatus]
 }

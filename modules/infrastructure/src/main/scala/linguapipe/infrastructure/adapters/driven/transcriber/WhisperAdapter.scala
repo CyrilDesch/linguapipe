@@ -13,7 +13,7 @@ import zio.*
 import zio.json.*
 
 import linguapipe.application.ports.driven.TranscriberPort
-import linguapipe.domain.{HealthStatus, IngestPayload, IngestSource, Transcript, TranscriptMetadata}
+import linguapipe.domain.{HealthStatus, IngestSource, Transcript, TranscriptMetadata}
 import linguapipe.infrastructure.config.TranscriberAdapterConfig
 
 final case class WhisperResponse(
@@ -28,13 +28,13 @@ object WhisperResponse {
 
 class WhisperAdapter(config: TranscriberAdapterConfig.Whisper) extends TranscriberPort {
 
-  override def transcribe(payload: IngestPayload.Base64Audio): Task[Transcript] = {
+  override def transcribe(audioContent: String, format: String, language: Option[String]): Task[Transcript] = {
     val transcriptId = UUID.randomUUID()
     val now          = Instant.now()
 
     for {
-      audioBytes <- ZIO.attempt(Base64.getDecoder.decode(payload.content))
-      response   <- makeWhisperRequest(audioBytes, payload.format, payload.language)
+      audioBytes <- ZIO.attempt(Base64.getDecoder.decode(audioContent))
+      response   <- makeWhisperRequest(audioBytes, format, language)
       transcript <- parseWhisperResponse(response, transcriptId, now)
     } yield transcript
   }

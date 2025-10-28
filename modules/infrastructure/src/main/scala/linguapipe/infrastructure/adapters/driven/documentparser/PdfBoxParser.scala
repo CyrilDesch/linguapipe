@@ -5,18 +5,17 @@ import java.util.Base64
 import zio.*
 
 import linguapipe.application.ports.driven.DocumentParserPort
-import linguapipe.domain.IngestPayload
 
 final class PdfBoxParser extends DocumentParserPort {
 
-  override def parseDocument(payload: IngestPayload.Base64Document): Task[String] =
-    payload.mediaType match {
+  override def parseDocument(documentContent: String, mediaType: String): Task[String] =
+    mediaType match {
       case mt if mt.startsWith("application/pdf") =>
-        parsePdf(payload.content)
+        parsePdf(documentContent)
       case mt if mt.contains("officedocument") || mt.contains("msword") =>
-        parseOfficeDocument(payload.content, mt)
+        parseOfficeDocument(documentContent, mt)
       case mt if mt.startsWith("text/") =>
-        parseTextDocument(payload.content)
+        parseTextDocument(documentContent)
       case unsupported =>
         ZIO.fail(new UnsupportedOperationException(s"Unsupported media type: $unsupported"))
     }
