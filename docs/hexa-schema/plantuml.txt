@@ -25,15 +25,15 @@ package "Application\nBusiness logic" as application {
     domain --> drivenPort
 }
 
-' Driving Adapters (modules/infrastructure/adapters/driving)
-component "Gateway Adapter\n(adapters/driving/gateway)" as grpc #FFE4B5
+' Driving Adapters (linguapipe-infrastructure/***/adapters/driving)
+component "Gateway Adapter\n(linguapipe-infrastructure/***/adapters/driving/gateway)" as grpc #FFE4B5
 
-' Driven Adapters (modules/infrastructure/adapters/driven)
-component "Database Adapter\n(infrastructure/adapters/driven/database)" as db #FFE4B5
-component "Vector Store Adapter\n(infrastructure/adapters/driven/vectorstore)" as vector #FFE4B5
-component "Transcription Adapter\n(infrastructure/adapters/driven/transcription)" as transcription #FFE4B5
-component "Embedding Adapter\n(infrastructure/adapters/driven/embedding)" as embedding #FFE4B5
-component "BlobStore Adapter\n(infrastructure/adapters/driven/blob)" as embedding #FFE4B5
+' Driven Adapters (linguapipe-infrastructure/***/adapters/driven)
+component "Database Adapter\n(linguapipe-infrastructure/***/adapters/driven/database)" as db #FFE4B5
+component "Vector Store Adapter\n(linguapipe-infrastructure/***/adapters/driven/vectorstore)" as vector #FFE4B5
+component "Transcription Adapter\n(linguapipe-infrastructure/***/adapters/driven/transcription)" as transcription #FFE4B5
+component "Embedding Adapter\n(linguapipe-infrastructure/***/adapters/driven/embedding)" as embedding #FFE4B5
+component "BlobStore Adapter\n(linguapipe-infrastructure/***/adapters/driven/blob)" as blob #FFE4B5
 
 ' Driving side connections (inbound into app)
 grpc --> drivingPort
