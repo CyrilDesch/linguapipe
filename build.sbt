@@ -7,10 +7,13 @@ name := "LinguaPipe"
 
 inThisBuild(
   List(
-    scalaVersion                            := scala3,
-    dependencyOverrides += "org.scala-lang" %% "scala3-library" % scala3,
-    semanticdbEnabled                       := true,
-    semanticdbVersion                       := scalafixSemanticdb.revision,
+    scalaVersion := scala3,
+    dependencyOverrides ++= Seq(
+      "org.scala-lang" %% "scala3-library" % scala3,
+      "dev.zio"        %% "zio-json"       % "0.7.40"
+    ),
+    semanticdbEnabled := true,
+    semanticdbVersion := scalafixSemanticdb.revision,
     scalacOptions ++= Seq(
       "-deprecation",
       "-feature",

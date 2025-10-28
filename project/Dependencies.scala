@@ -11,6 +11,7 @@ object Dependencies {
     val postgresql        = "42.7.5"
     val quill             = "4.8.6"
     val slf4j             = "2.0.17"
+    val sttp              = "4.0.12"
     val tapir             = "1.11.24"
     val zio               = "2.1.17"
     val zioConfig         = "4.0.2"
@@ -55,14 +56,15 @@ object Dependencies {
     libraryDependencies ++= Seq(
       "org.scalameta" %% "munit"        % Versions.mUnit % Test,
       "dev.zio"       %% "zio-test"     % Versions.zio   % Test,
-      "dev.zio"       %% "zio-test-sbt" % Versions.zio   % Test
+      "dev.zio"       %% "zio-test-sbt" % Versions.zio   % Test,
+      "org.scalamock" %% "scalamock"    % "6.0.0"        % Test
     )
 
   val domainLibraryDependencies: Setting[Seq[ModuleID]] =
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio-prelude"          % Versions.zioPrelude,
       "dev.zio" %% "zio-prelude-magnolia" % Versions.zioPrelude,
-      "dev.zio" %% "zio-json"             % "0.7.0"
+      "dev.zio" %% "zio-json"             % "0.7.40"
     )
 
   val applicationLibraryDependencies: Setting[Seq[ModuleID]] =
@@ -76,18 +78,21 @@ object Dependencies {
         jwtDependencies ++
         databaseDependencies ++
         quillDependencies ++ Seq(
-          "io.scalaland"                %% "chimney"                  % Versions.chimney,
-          "com.softwaremill.sttp.tapir" %% "tapir-zio"                % Versions.tapir,
-          "com.softwaremill.sttp.tapir" %% "tapir-iron"               % Versions.tapir,
-          "com.softwaremill.sttp.tapir" %% "tapir-json-zio"           % Versions.tapir,
-          "com.softwaremill.sttp.tapir" %% "tapir-zio-http-server"    % Versions.tapir,
-          "com.softwaremill.sttp.tapir" %% "tapir-prometheus-metrics" % Versions.tapir,
-          "com.softwaremill.sttp.tapir" %% "tapir-swagger-ui-bundle"  % Versions.tapir,
-          "com.softwaremill.sttp.tapir" %% "tapir-sttp-stub-server"   % Versions.tapir % Test,
-          "dev.zio"                     %% "zio-test"                 % Versions.zio   % Test,
-          "dev.zio"                     %% "zio-test-junit"           % Versions.zio   % Test,
-          "dev.zio"                     %% "zio-test-sbt"             % Versions.zio   % Test,
-          "dev.zio"                     %% "zio-test-magnolia"        % Versions.zio   % Test
+          "io.scalaland"                  %% "chimney"                  % Versions.chimney,
+          "com.softwaremill.sttp.client4" %% "core"                     % Versions.sttp,
+          "com.softwaremill.sttp.client4" %% "zio"                      % Versions.sttp,
+          "com.softwaremill.sttp.client4" %% "zio-json"                 % Versions.sttp,
+          "com.softwaremill.sttp.tapir"   %% "tapir-zio"                % Versions.tapir,
+          "com.softwaremill.sttp.tapir"   %% "tapir-iron"               % Versions.tapir,
+          "com.softwaremill.sttp.tapir"   %% "tapir-json-zio"           % Versions.tapir,
+          "com.softwaremill.sttp.tapir"   %% "tapir-zio-http-server"    % Versions.tapir,
+          "com.softwaremill.sttp.tapir"   %% "tapir-prometheus-metrics" % Versions.tapir,
+          "com.softwaremill.sttp.tapir"   %% "tapir-swagger-ui-bundle"  % Versions.tapir,
+          "com.softwaremill.sttp.tapir"   %% "tapir-sttp-stub-server"   % Versions.tapir % Test,
+          "dev.zio"                       %% "zio-test"                 % Versions.zio   % Test,
+          "dev.zio"                       %% "zio-test-junit"           % Versions.zio   % Test,
+          "dev.zio"                       %% "zio-test-sbt"             % Versions.zio   % Test,
+          "dev.zio"                       %% "zio-test-magnolia"        % Versions.zio   % Test
         )
     )
 }

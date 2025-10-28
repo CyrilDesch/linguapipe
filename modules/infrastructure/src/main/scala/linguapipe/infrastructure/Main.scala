@@ -3,10 +3,11 @@ package linguapipe.infrastructure
 import zio.*
 
 import linguapipe.application.ports.driving.{HealthCheckPort, IngestPort}
+import linguapipe.domain.HealthStatus
 import linguapipe.infrastructure.adapters.driving.Gateway
 import linguapipe.infrastructure.config.RuntimeConfig
 import linguapipe.infrastructure.migration.MigrationRunner
-import linguapipe.infrastructure.runtime.{LinguaPipeRuntime, ModuleWiring}
+import linguapipe.infrastructure.runtime.ModuleWiring
 
 object Main extends ZIOAppDefault {
 
@@ -29,7 +30,7 @@ object Main extends ZIOAppDefault {
     (for {
       _ <- ZIO.logInfo("Starting LinguaPipe application...")
       _ <- runMigrations
-      _ <- LinguaPipeRuntime.make
+      _ <- runHealthChecks
       _ <- startGateway
       _ <- ZIO.never
     } yield ()).orDie
@@ -50,6 +51,29 @@ object Main extends ZIOAppDefault {
              ZIO.logInfo("Skipping migrations (run-on-startup is disabled)")
            }
     } yield ()
+
+  private def runHealthChecks: ZIO[HealthCheckPort, Throwable, Unit] =
+    for {
+      healthCheckPort <- ZIO.service[HealthCheckPort]
+      _               <- ZIO.logInfo("Running health checks...")
+      healthResults   <- healthCheckPort.checkAllServices().orElse(ZIO.succeed(List.empty))
+      _               <- logHealthResults(healthResults)
+      _               <- ZIO.logInfo("All systems operational")
+    } yield ()
+
+  private def logHealthResults(results: List[HealthStatus]): ZIO[Any, Throwable, Unit] =
+    ZIO
+      .foreach(results) { status =>
+        status match {
+          case HealthStatus.Healthy(serviceName, _, _) =>
+            ZIO.logInfo(s"✓ $serviceName")
+          case HealthStatus.Unhealthy(serviceName, _, error, _) =>
+            ZIO.logWarning(s"✗ $serviceName: $error")
+          case HealthStatus.Timeout(serviceName, _, timeoutMs) =>
+            ZIO.logWarning(s"✗ $serviceName: timeout after ${timeoutMs}ms")
+        }
+      }
+      .unit
 
   private def startGateway: ZIO[Gateway & IngestPort & HealthCheckPort, Throwable, Unit] =
     for {
