@@ -2,12 +2,11 @@ package com.cyrelis.linguapipe.infrastructure.adapters.driven.database.postgres
 
 import java.time.Instant
 
-import zio.*
-
 import com.cyrelis.linguapipe.application.ports.driven.DbSinkPort
 import com.cyrelis.linguapipe.application.types.HealthStatus
 import com.cyrelis.linguapipe.domain.Transcript
 import com.cyrelis.linguapipe.infrastructure.config.DatabaseAdapterConfig
+import zio.*
 
 final class PostgresTranscriptSink(config: DatabaseAdapterConfig.Postgres) extends DbSinkPort {
 

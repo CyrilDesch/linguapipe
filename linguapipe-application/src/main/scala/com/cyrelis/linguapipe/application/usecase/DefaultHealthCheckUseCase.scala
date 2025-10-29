@@ -1,10 +1,9 @@
 package com.cyrelis.linguapipe.application.usecase
 
-import zio.*
-
 import com.cyrelis.linguapipe.application.ports.driven.*
 import com.cyrelis.linguapipe.application.ports.driving.HealthCheckPort
 import com.cyrelis.linguapipe.application.types.HealthStatus
+import zio.*
 
 final class DefaultHealthCheckUseCase(
   transcriber: TranscriberPort,

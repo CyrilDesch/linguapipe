@@ -1,9 +1,8 @@
 package com.cyrelis.linguapipe.infrastructure.migration
 
+import com.cyrelis.linguapipe.infrastructure.config.DatabaseAdapterConfig
 import org.flywaydb.core.Flyway
 import zio.*
-
-import com.cyrelis.linguapipe.infrastructure.config.DatabaseAdapterConfig
 
 trait MigrationService {
   def runMigrations(): Task[Unit]

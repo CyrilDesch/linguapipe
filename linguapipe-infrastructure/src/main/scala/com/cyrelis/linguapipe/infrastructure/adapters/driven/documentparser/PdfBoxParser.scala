@@ -2,9 +2,8 @@ package com.cyrelis.linguapipe.infrastructure.adapters.driven.documentparser
 
 import java.util.Base64
 
-import zio.*
-
 import com.cyrelis.linguapipe.application.ports.driven.DocumentParserPort
+import zio.*
 
 final class PdfBoxParser extends DocumentParserPort {
 

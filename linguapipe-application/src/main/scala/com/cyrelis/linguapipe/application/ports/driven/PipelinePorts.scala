@@ -2,13 +2,12 @@ package com.cyrelis.linguapipe.application.ports.driven
 
 import java.util.UUID
 
-import zio.*
-
 import com.cyrelis.linguapipe.application.types.HealthStatus
 import com.cyrelis.linguapipe.domain.Transcript
+import zio.*
 
 trait TranscriberPort {
-  def transcribe(audioContent: String, format: String, language: Option[String]): Task[Transcript]
+  def transcribe(audioContent: Array[Byte], format: String): Task[Transcript]
   def healthCheck(): Task[HealthStatus]
 }
 
@@ -28,7 +27,7 @@ trait VectorSinkPort {
 }
 
 trait BlobStorePort {
-  def storeAudio(jobId: UUID, audioContent: String, format: String): Task[Unit]
+  def storeAudio(jobId: UUID, audioContent: Array[Byte], format: String): Task[Unit]
   def storeDocument(jobId: UUID, documentContent: String, mediaType: String): Task[Unit]
   def healthCheck(): Task[HealthStatus]
 }

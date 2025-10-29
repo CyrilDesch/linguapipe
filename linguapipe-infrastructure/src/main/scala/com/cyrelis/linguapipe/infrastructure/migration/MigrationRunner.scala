@@ -35,11 +35,11 @@ object MigrationRunner {
       fixtureService = new com.cyrelis.linguapipe.infrastructure.fixtures.DatabaseFixtureService(dbConfig)
       hasData       <- fixtureService.hasData()
       _             <- if (hasData) {
-        ZIO.logInfo("Database already contains data, skipping fixtures")
-      } else {
-        ZIO.logInfo("Database is empty, loading fixtures") *>
-          fixtureService.loadFixtures()
-      }
+             ZIO.logInfo("Database already contains data, skipping fixtures")
+           } else {
+             ZIO.logInfo("Database is empty, loading fixtures") *>
+               fixtureService.loadFixtures()
+           }
     } yield ()
 
   private def initializeVectorStore(): ZIO[RuntimeConfig, Throwable, Unit] =

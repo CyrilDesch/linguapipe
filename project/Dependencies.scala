@@ -3,21 +3,20 @@ import sbt.Keys.*
 
 object Dependencies {
   object Versions {
-    val auth0             = "4.5.0"
-    val chimney           = "1.6.0"
-    val flywaydb          = "11.8.1"
-    val logback           = "1.5.18"
-    val mUnit             = "1.0.2"
-    val postgresql        = "42.7.5"
-    val quill             = "4.8.6"
-    val slf4j             = "2.0.17"
-    val sttp              = "4.0.12"
-    val tapir             = "1.11.24"
-    val zio               = "2.1.17"
-    val zioConfig         = "4.0.2"
-    val zioLogging        = "2.2.4"
-    val zioPrelude        = "1.0.0-RC36"
-    val zioTestContainers = "0.10.0"
+    val auth0      = "4.5.0"
+    val chimney    = "1.6.0"
+    val flywaydb   = "11.8.1"
+    val logback    = "1.5.18"
+    val mUnit      = "1.0.2"
+    val postgresql = "42.7.5"
+    val quill      = "4.8.6"
+    val slf4j      = "2.0.17"
+    val sttp       = "4.0.12"
+    val tapir      = "1.11.24"
+    val zio        = "2.1.17"
+    val zioConfig  = "4.0.2"
+    val zioLogging = "2.2.4"
+    val zioPrelude = "1.0.0-RC36"
   }
 
   private val zioCoreDependencies = Seq(
@@ -32,10 +31,9 @@ object Dependencies {
   )
 
   private val databaseDependencies = Seq(
-    "org.flywaydb"           % "flyway-core"                       % Versions.flywaydb,
-    "org.flywaydb"           % "flyway-database-postgresql"        % Versions.flywaydb,
-    "org.postgresql"         % "postgresql"                        % Versions.postgresql,
-    "io.github.scottweaver" %% "zio-2-0-testcontainers-postgresql" % Versions.zioTestContainers % Test
+    "org.flywaydb"   % "flyway-core"                % Versions.flywaydb,
+    "org.flywaydb"   % "flyway-database-postgresql" % Versions.flywaydb,
+    "org.postgresql" % "postgresql"                 % Versions.postgresql
   )
 
   private val loggingDependencies = Seq(

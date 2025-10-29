@@ -1,13 +1,12 @@
 package com.cyrelis.linguapipe.infrastructure
 
-import zio.*
-
 import com.cyrelis.linguapipe.application.ports.driving.{HealthCheckPort, IngestPort}
 import com.cyrelis.linguapipe.application.types.HealthStatus
 import com.cyrelis.linguapipe.infrastructure.adapters.driving.Gateway
 import com.cyrelis.linguapipe.infrastructure.config.RuntimeConfig
 import com.cyrelis.linguapipe.infrastructure.migration.MigrationRunner
 import com.cyrelis.linguapipe.infrastructure.runtime.ModuleWiring
+import zio.*
 
 object Main extends ZIOAppDefault {
 
@@ -75,7 +74,7 @@ object Main extends ZIOAppDefault {
       }
       .unit
 
-  private def startGateway: ZIO[Gateway & IngestPort & HealthCheckPort, Throwable, Unit] =
+  private def startGateway: ZIO[Gateway & IngestPort & HealthCheckPort & RuntimeConfig, Throwable, Unit] =
     for {
       gateway <- ZIO.service[Gateway]
       _       <- gateway.start

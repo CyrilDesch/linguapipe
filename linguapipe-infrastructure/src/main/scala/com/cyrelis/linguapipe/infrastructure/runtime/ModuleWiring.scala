@@ -1,11 +1,10 @@
 package com.cyrelis.linguapipe.infrastructure.runtime
 
-import zio.*
-
 import com.cyrelis.linguapipe.application.ports.driving.{HealthCheckPort, IngestPort}
 import com.cyrelis.linguapipe.application.usecase.{DefaultHealthCheckUseCase, DefaultIngestPipeline}
 import com.cyrelis.linguapipe.infrastructure.adapters.driving.Gateway
 import com.cyrelis.linguapipe.infrastructure.config.{AdapterFactory, RuntimeConfig}
+import zio.*
 
 object ModuleWiring {
 

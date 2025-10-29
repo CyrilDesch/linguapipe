@@ -1,11 +1,14 @@
 package com.cyrelis.linguapipe.infrastructure.adapters.driving.gateway.rest
 
-import zio.json.*
-import com.cyrelis.linguapipe.application.types.HealthStatus
+import java.io.File
 
-final case class AudioIngestRestDto(content: String, format: String, language: Option[String])
-final case class TextIngestRestDto(content: String, language: Option[String])
-final case class DocumentIngestRestDto(content: String, mediaType: String, language: Option[String])
+import com.cyrelis.linguapipe.application.types.HealthStatus
+import sttp.model.Part
+import zio.json.*
+
+final case class AudioIngestMultipartDto(file: Part[File])
+final case class TextIngestRestDto(content: String)
+final case class DocumentIngestRestDto(content: String, mediaType: String)
 
 final case class IngestionResultRestDto(
   transcriptId: String,
@@ -21,11 +24,6 @@ final case class HealthStatusRestDto(
   timeoutMs: Option[Long] = None,
   details: Map[String, String] = Map.empty
 )
-
-object AudioIngestRestDto {
-  given JsonEncoder[AudioIngestRestDto] = DeriveJsonEncoder.gen[AudioIngestRestDto]
-  given JsonDecoder[AudioIngestRestDto] = DeriveJsonDecoder.gen[AudioIngestRestDto]
-}
 
 object TextIngestRestDto {
   given JsonEncoder[TextIngestRestDto] = DeriveJsonEncoder.gen[TextIngestRestDto]

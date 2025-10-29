@@ -1,11 +1,13 @@
 package com.cyrelis.linguapipe.infrastructure.adapters.driven.transcriber
 
-import zio.*
-import zio.test.*
-import zio.test.Assertion.*
-
 import com.cyrelis.linguapipe.application.types.HealthStatus
 import com.cyrelis.linguapipe.infrastructure.config.TranscriberAdapterConfig
+import sttp.client4.*
+import sttp.model.{Method, RequestMetadata, StatusCode}
+import zio.*
+import zio.json.*
+import zio.test.*
+import zio.test.Assertion.*
 
 object WhisperAdapterTest extends ZIOSpecDefault {
 
@@ -21,9 +23,15 @@ object WhisperAdapterTest extends ZIOSpecDefault {
   ) extends WhisperAdapter(config) {
     override protected def makeWhisperRequest(
       audioBytes: Array[Byte],
-      format: String,
-      language: Option[String]
-    ): Task[WhisperResponse] = stubbedResponse
+      format: String
+    ): Task[Response[String]] =
+      stubbedResponse.map { whisperResponse =>
+        Response(
+          body = whisperResponse.toJson,
+          code = StatusCode.Ok,
+          requestMetadata = RequestMetadata(Method.POST, uri"http://localhost:8000/asr", Nil)
+        )
+      }
   }
 
   def spec = suite("WhisperAdapter")(
@@ -83,17 +91,17 @@ object WhisperAdapterTest extends ZIOSpecDefault {
       }
     ),
     suite("input validation")(
-      test("should reject invalid base64 content") {
-        val invalidContent = "invalid-base64!@#$%"
+      test("should reject invalid audio content") {
+        val invalidContent = "invalid-content".getBytes
         val adapter        = WhisperAdapter(testConfig)
-        val result         = adapter.transcribe(invalidContent, "wav", Some("fr"))
+        val result         = adapter.transcribe(invalidContent, "wav")
 
         assertZIO(result.exit)(fails(anything))
       },
       test("should reject empty audio content") {
-        val emptyContent = ""
+        val emptyContent = Array.emptyByteArray
         val adapter      = WhisperAdapter(testConfig)
-        val result       = adapter.transcribe(emptyContent, "wav", Some("fr"))
+        val result       = adapter.transcribe(emptyContent, "wav")
 
         assertZIO(result.exit)(fails(anything))
       }
@@ -101,41 +109,34 @@ object WhisperAdapterTest extends ZIOSpecDefault {
     suite("transcription scenarios")(
       test("should successfully transcribe audio and return transcript") {
         val mockResponse = WhisperResponse(
-          text = "Bonjour, ceci est un test de transcription.",
-          language = "fr",
-          duration = 3.5
+          text = "Bonjour, ceci est un test de transcription."
         )
         val adapter = new WhisperAdapterTestDouble(testConfig, ZIO.succeed(mockResponse))
 
-        val validBase64 = java.util.Base64.getEncoder.encodeToString("fake audio data".getBytes)
+        val audioBytes = "fake audio data".getBytes
 
         for {
-          transcript <- adapter.transcribe(validBase64, "wav", Some("fr"))
+          transcript <- adapter.transcribe(audioBytes, "wav")
         } yield assertTrue(
           transcript.text == "Bonjour, ceci est un test de transcription." &&
-            transcript.language == "fr" &&
             transcript.metadata.attributes("provider") == "whisper" &&
-            transcript.metadata.attributes("model") == "whisper-1" &&
-            transcript.metadata.attributes("duration") == "3.5"
+            transcript.metadata.attributes("model") == "whisper-1"
         )
       },
       test("should include correct metadata in transcript") {
         val mockResponse = WhisperResponse(
-          text = "Test transcript",
-          language = "en",
-          duration = 2.0
+          text = "Test transcript"
         )
         val adapter = new WhisperAdapterTestDouble(testConfig, ZIO.succeed(mockResponse))
 
-        val validBase64 = java.util.Base64.getEncoder.encodeToString("test audio".getBytes)
+        val audioBytes = "test audio".getBytes
 
         for {
-          transcript <- adapter.transcribe(validBase64, "mp3", Some("en"))
+          transcript <- adapter.transcribe(audioBytes, "mp3")
         } yield assertTrue(
           transcript.metadata.attributes.contains("provider") &&
             transcript.metadata.attributes.contains("model") &&
             transcript.metadata.attributes.contains("api_url") &&
-            transcript.metadata.attributes.contains("duration") &&
             transcript.metadata.attributes("api_url") == "http://localhost:8000"
         )
       },
@@ -146,26 +147,24 @@ object WhisperAdapterTest extends ZIOSpecDefault {
           ZIO.fail(new RuntimeException(errorMessage))
         )
 
-        val validBase64 = java.util.Base64.getEncoder.encodeToString("audio data".getBytes)
+        val audioBytes = "audio data".getBytes
 
-        assertZIO(adapter.transcribe(validBase64, "wav", Some("en")).exit)(
+        assertZIO(adapter.transcribe(audioBytes, "wav").exit)(
           fails(isSubtype[RuntimeException](hasMessage(equalTo(errorMessage))))
         )
       },
       test("should handle different audio formats") {
         val mockResponse = WhisperResponse(
-          text = "Format test",
-          language = "en",
-          duration = 1.0
+          text = "Format test"
         )
         val adapter = new WhisperAdapterTestDouble(testConfig, ZIO.succeed(mockResponse))
 
-        val validBase64 = java.util.Base64.getEncoder.encodeToString("audio".getBytes)
-        val formats     = Seq("wav", "mp3", "m4a", "ogg")
+        val audioBytes = "audio".getBytes
+        val formats    = Seq("wav", "mp3", "m4a", "ogg")
 
         for {
           transcripts <- ZIO.foreach(formats) { format =>
-                           adapter.transcribe(validBase64, format, Some("en"))
+                           adapter.transcribe(audioBytes, format)
                          }
         } yield assertTrue(transcripts.forall(_.text == "Format test"))
       }

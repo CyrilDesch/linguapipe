@@ -1,8 +1,7 @@
 package com.cyrelis.linguapipe.infrastructure.migration
 
-import zio.*
-
 import com.cyrelis.linguapipe.infrastructure.config.BlobStoreAdapterConfig
+import zio.*
 
 trait BlobStoreInitializer {
   def initialize(): Task[Unit]

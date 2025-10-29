@@ -1,8 +1,7 @@
 package com.cyrelis.linguapipe.infrastructure.migration
 
-import zio.*
-
 import com.cyrelis.linguapipe.infrastructure.config.VectorStoreAdapterConfig
+import zio.*
 
 trait VectorStoreInitializer {
   def initialize(): Task[Unit]

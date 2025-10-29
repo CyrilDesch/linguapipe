@@ -5,7 +5,6 @@ import java.util.UUID
 
 final case class Transcript(
   id: UUID,
-  language: String,
   text: String,
   createdAt: Instant,
   metadata: TranscriptMetadata

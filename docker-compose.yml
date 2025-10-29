@@ -40,8 +40,9 @@ services:
     ports:
       - "9001:9000"
     environment:
-      - "ASR_MODEL=base"
-      - "ASR_ENGINE=openai_whisper"
+      - "ASR_MODEL=tiny"
+      - "ASR_ENGINE=faster_whisper"
+      - "ASR_DEVICE=cpu"
     volumes:
       - "whisper_models:/root/.cache/whisper"
     healthcheck:

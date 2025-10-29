@@ -3,11 +3,10 @@ package com.cyrelis.linguapipe.application.usecase
 import java.time.Instant
 import java.util.UUID
 
-import zio.*
-
 import com.cyrelis.linguapipe.application.ports.driven.*
 import com.cyrelis.linguapipe.application.ports.driving.*
 import com.cyrelis.linguapipe.domain.*
+import zio.*
 
 final class DefaultIngestPipeline(
   transcriber: TranscriberPort,
@@ -18,43 +17,42 @@ final class DefaultIngestPipeline(
   documentParser: DocumentParserPort
 ) extends IngestPort {
 
-  override def executeAudio(audioContent: String, format: String, language: Option[String]): Task[Transcript] =
+  override def executeAudio(audioContent: Array[Byte], format: String): Task[Transcript] =
     for {
       jobId      <- ZIO.succeed(UUID.randomUUID())
       _          <- blobStore.storeAudio(jobId, audioContent, format)
-      transcript <- transcriber.transcribe(audioContent, format, language)
+      transcript <- transcriber.transcribe(audioContent, format)
       _          <- dbSink.persistTranscript(transcript)
       embedding  <- embedder.embed(transcript)
       _          <- vectorSink.upsertEmbeddings(transcript.id, List(embedding))
     } yield transcript
 
-  override def executeText(textContent: String, language: Option[String]): Task[Transcript] =
+  override def executeText(textContent: String): Task[Transcript] =
     for {
-      transcript <- ZIO.succeed(createTranscriptFromText(textContent, language))
+      transcript <- ZIO.succeed(createTranscriptFromText(textContent))
       _          <- dbSink.persistTranscript(transcript)
       embedding  <- embedder.embed(transcript)
       _          <- vectorSink.upsertEmbeddings(transcript.id, List(embedding))
     } yield transcript
 
-  override def executeDocument(documentContent: String, mediaType: String, language: Option[String]): Task[Transcript] =
+  override def executeDocument(documentContent: String, mediaType: String): Task[Transcript] =
     for {
       jobId         <- ZIO.succeed(UUID.randomUUID())
       _             <- blobStore.storeDocument(jobId, documentContent, mediaType)
       extractedText <- documentParser.parseDocument(documentContent, mediaType)
-      transcript    <- ZIO.succeed(createTranscriptFromDocument(extractedText, mediaType, language))
+      transcript    <- ZIO.succeed(createTranscriptFromDocument(extractedText, mediaType))
       _             <- dbSink.persistTranscript(transcript)
       embedding     <- embedder.embed(transcript)
       _             <- vectorSink.upsertEmbeddings(transcript.id, List(embedding))
     } yield transcript
 
-  private def createTranscriptFromText(content: String, language: Option[String]): Transcript = {
+  private def createTranscriptFromText(content: String): Transcript = {
     val metadata = TranscriptMetadata(
       source = IngestSource.Text,
-      attributes = language.map(l => Map("language" -> l)).getOrElse(Map.empty)
+      attributes = Map.empty
     )
     Transcript(
       id = UUID.randomUUID(),
-      language = language.getOrElse("unknown"),
       text = content,
       createdAt = Instant.now(),
       metadata = metadata
@@ -63,19 +61,17 @@ final class DefaultIngestPipeline(
 
   private def createTranscriptFromDocument(
     extractedText: String,
-    mediaType: String,
-    language: Option[String]
+    mediaType: String
   ): Transcript = {
     val metadata = TranscriptMetadata(
       source = IngestSource.Document,
       attributes = Map(
         "processing_method" -> "document_extraction",
         "media_type"        -> mediaType
-      ) ++ language.map(l => ("language", l))
+      )
     )
     Transcript(
       id = UUID.randomUUID(),
-      language = language.getOrElse("unknown"),
       text = extractedText,
       createdAt = Instant.now(),
       metadata = metadata

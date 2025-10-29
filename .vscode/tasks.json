@@ -41,6 +41,15 @@
     },
     {
       "label": "runDemo",
+      "dependsOrder": "sequence",
+      "dependsOn": ["docker", "runAfterDocker"],
+      "problemMatcher": [],
+      "group": {
+        "kind": "build"
+      }
+    },
+    {
+      "label": "runAfterDocker",
       "dependsOrder": "parallel",
       "dependsOn": ["serverRun", "dockerWatch"],
       "problemMatcher": [],

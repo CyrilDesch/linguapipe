@@ -213,11 +213,6 @@ sbt linguapipe-infrastructure/test
 sbt coverage test coverageReport
 ```
 
-### Testing Strategy
-
-- **Domain tests**: Pure unit tests, no ZIO runtime needed
-- **Infrastructure tests**: Integration tests with real adapters (or testcontainers)
-
 ## 📚 Documentation
 
 - **Architecture**: Hexagonal architecture principles and module structure (see Architecture section above)

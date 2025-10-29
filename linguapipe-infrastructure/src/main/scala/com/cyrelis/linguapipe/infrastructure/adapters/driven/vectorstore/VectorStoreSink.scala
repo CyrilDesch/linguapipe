@@ -3,10 +3,9 @@ package com.cyrelis.linguapipe.infrastructure.adapters.driven.vectorstore
 import java.time.Instant
 import java.util.UUID
 
-import zio.*
-
 import com.cyrelis.linguapipe.application.ports.driven.VectorSinkPort
 import com.cyrelis.linguapipe.application.types.HealthStatus
+import zio.*
 
 final class VectorStoreSink(provider: String = "inmemory") extends VectorSinkPort {
   override def upsertEmbeddings(

@@ -2,11 +2,10 @@ package com.cyrelis.linguapipe.infrastructure.adapters.driven.embedder
 
 import java.time.Instant
 
-import zio.*
-
 import com.cyrelis.linguapipe.application.ports.driven.EmbedderPort
 import com.cyrelis.linguapipe.application.types.HealthStatus
 import com.cyrelis.linguapipe.domain.Transcript
+import zio.*
 
 final class EmbeddingService(provider: String = "mock") extends EmbedderPort {
 
