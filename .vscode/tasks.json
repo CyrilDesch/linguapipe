@@ -33,7 +33,8 @@
       "command": "docker-compose up -d --wait",
       "presentation": {
         "panel": "dedicated",
-        "group": "back"
+        "group": "runDevCmd",
+        "close": true
       },
       "group": "build",
       "isBackground": false
@@ -41,7 +42,16 @@
     {
       "label": "runDemo",
       "dependsOrder": "sequence",
-      "dependsOn": ["docker", "serverRun"],
+      "dependsOn": ["docker", "runAfterDocker"],
+      "problemMatcher": [],
+      "group": {
+        "kind": "build"
+      }
+    },
+    {
+      "label": "runAfterDocker",
+      "dependsOrder": "parallel",
+      "dependsOn": ["serverRun", "dockerWatch"],
       "problemMatcher": [],
       "group": {
         "kind": "build"
@@ -55,10 +65,26 @@
       "type": "shell",
       "command": "./scripts/serverRun.sh",
       "presentation": {
-        "panel": "shared",
-        "group": "back"
+        "panel": "dedicated",
+        "group": "back",
+        "reveal": "always"
       },
       "group": "build"
+    },
+    {
+      "label": "dockerWatch",
+      "icon": {
+        "id": "eye"
+      },
+      "type": "shell",
+      "command": "./scripts/dockerWatch.sh",
+      "presentation": {
+        "panel": "dedicated",
+        "group": "back",
+        "reveal": "always"
+      },
+      "group": "build",
+      "isBackground": false
     }
   ]
 }

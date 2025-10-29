@@ -43,7 +43,6 @@ description: Scala and ZIO coding guidelines for LinguaPipe
 
 ### Infrastructure Tests
 
-- Integration tests with real adapters (or testcontainers)
 - Test adapter implementations against port contracts
 - Use separate test configuration (`application-test.conf`)
 

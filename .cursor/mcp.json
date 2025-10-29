@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "linguapipe-metals": {
-      "url": "http://localhost:58150/sse"
+      "url": "http://localhost:65347/sse"
     }
   }
 }

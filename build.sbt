@@ -1,16 +1,23 @@
-import Dependencies.*
-import DeploymentSettings.*
+import Dependencies.{
+  applicationLibraryDependencies,
+  domainLibraryDependencies,
+  infrastructureLibraryDependencies,
+  testingLibraryDependencies
+}
 
 val scala3 = "3.7.3"
 
-name := "LinguaPipe"
+name := "com.cyrelis.linguapipe"
 
 inThisBuild(
   List(
-    scalaVersion                            := scala3,
-    dependencyOverrides += "org.scala-lang" %% "scala3-library" % scala3,
-    semanticdbEnabled                       := true,
-    semanticdbVersion                       := scalafixSemanticdb.revision,
+    scalaVersion := scala3,
+    dependencyOverrides ++= Seq(
+      "org.scala-lang" %% "scala3-library" % scala3,
+      "dev.zio"        %% "zio-json"       % "0.7.40"
+    ),
+    semanticdbEnabled := true,
+    semanticdbVersion := scalafixSemanticdb.revision,
     scalacOptions ++= Seq(
       "-deprecation",
       "-feature",
@@ -25,39 +32,39 @@ inThisBuild(
 lazy val root = project
   .in(file("."))
   .aggregate(
-    domain,
-    application,
-    infrastructure
+    `linguapipe-domain`,
+    `linguapipe-application`,
+    `linguapipe-infrastructure`
   )
   .disablePlugins(RevolverPlugin)
   .settings(
     publish / skip := true
   )
 
-lazy val domain = project
-  .in(file("modules/domain"))
+lazy val `linguapipe-domain` = project
+  .in(file("linguapipe-domain"))
   .disablePlugins(RevolverPlugin)
   .settings(
     domainLibraryDependencies,
     publish / skip := true
   )
 
-lazy val application = project
-  .in(file("modules/application"))
+lazy val `linguapipe-application` = project
+  .in(file("linguapipe-application"))
   .disablePlugins(RevolverPlugin)
-  .dependsOn(domain)
+  .dependsOn(`linguapipe-domain`)
   .settings(
     applicationLibraryDependencies,
     publish / skip := true
   )
 
-lazy val infrastructure = project
-  .in(file("modules/infrastructure"))
-  .enablePlugins(JavaAppPackaging, DockerPlugin, AshScriptPlugin)
-  .dependsOn(application)
+lazy val `linguapipe-infrastructure` = project
+  .in(file("linguapipe-infrastructure"))
+  .enablePlugins(JavaAppPackaging, DockerPlugin, AshScriptPlugin, RevolverPlugin)
+  .dependsOn(`linguapipe-application`)
   .settings(
     fork      := true,
-    mainClass := Some("linguapipe.infrastructure.Main"),
+    mainClass := Some("com.cyrelis.linguapipe.infrastructure.Main"),
     infrastructureLibraryDependencies,
     testingLibraryDependencies,
     publish / skip := true

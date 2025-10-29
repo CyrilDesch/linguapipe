@@ -1,4 +1,4 @@
-# LinguaPipe
+# LinguaPipe (still in development)
 
 **A modular, production-ready Scala pipeline for transforming audio, text, and PDFs into searchable knowledge.**
 
@@ -14,6 +14,19 @@ LinguaPipe is designed with **Hexagonal Architecture** principles, making it eas
 - Expose APIs via gRPC
 - Switch adapters through config files without changing code
 - Built with hexagonal architecture for clean testing and extension
+
+## Roadmap
+
+- [x] Implement REST Gateway
+- [x] Implement a Transcriber Adapter
+- [x] Allow audio ingestion
+- [ ] Implement a Database Adapter
+- [ ] Implement an Embedder Adapter
+- [ ] Implement a Vector Store Adapter
+- [ ] Implement a Blob Store Adapter
+- [ ] Allow text and PDF ingestion
+- [ ] Implement gRPC Gateway
+- [x] Implement Retry and Timeout Services
 
 ## 📋 Prerequisites
 
@@ -58,7 +71,7 @@ sbt compile
 ### 4. Run the application
 
 ```bash
-sbt "infrastructure/run"
+sbt "linguapipe-infrastructure/run"
 ```
 
 ## 🎯 Usage
@@ -67,10 +80,10 @@ sbt "infrastructure/run"
 
 ```bash
 # Standard run (make sure Docker services are running first)
-sbt "infrastructure/run"
+sbt "linguapipe-infrastructure/run"
 
 # Hot reload on code changes (development)
-sbt "~infrastructure/reStart"
+sbt "~linguapipe-infrastructure/reStart"
 
 # Test the application
 sbt test
@@ -82,15 +95,15 @@ LinguaPipe follows **Hexagonal Architecture** (Ports & Adapters) with three dist
 
 ![Hexagonal Architecture Schema](docs/hexa-schema/image.png)
 
-### `modules/domain`
+### `linguapipe-domain`
 
 **Pure business logic** with zero external dependencies.
 
-### `modules/application`
+### `linguapipe-application`
 
 **Use cases and port definitions** orchestrating business workflows.
 
-### `modules/infrastructure`
+### `linguapipe-infrastructure`
 
 **Concrete implementations** of all adapters and runtime concerns.
 
@@ -139,7 +152,7 @@ export WHISPER_URL=http://your-whisper:9001
 export HUGGINGFACE_URL=http://your-embeddings:8080
 export MINIO_ENDPOINT=http://your-minio:9000
 
-sbt "infrastructure/run"
+sbt "linguapipe-infrastructure/run"
 ```
 
 Reference them in `application.conf`:
@@ -159,9 +172,9 @@ linguapipe.adapters.driven.database {
 
 To add a new driven adapter (e.g., Redis, MongoDB, etc.):
 
-1. Define the port interface in `modules/application/ports/driven/` (if it doesn't exist)
+1. Define the port interface in `linguapipe-application/***/ports/driven/` (if it doesn't exist)
 2. Add config types in `RuntimeConfig.scala`
-3. Implement the adapter in `modules/infrastructure/adapters/driven/[type]/[tech]/`
+3. Implement the adapter in `linguapipe-infrastructure/***/adapters/driven/[type]/[tech]/`
 4. Add factory case in `AdapterFactory.scala`
 5. Add parser logic in `ConfigLoader.scala`
 6. Document it in `application.conf`
@@ -171,19 +184,19 @@ To add a new driven adapter (e.g., Redis, MongoDB, etc.):
 
 To add a new driving adapter (e.g., WebSocket, CLI, etc.):
 
-1. Define the driving port in `modules/application/ports/driving/`
+1. Define the driving port in `linguapipe-application/***/ports/driving/`
 2. Add config types in `RuntimeConfig.scala`
-3. Implement the adapter in `modules/infrastructure/adapters/driving/[tech]/`
+3. Implement the adapter in `linguapipe-infrastructure/***/adapters/driving/[tech]/`
 4. Wire it in the runtime module with ZIO layers
 5. Update `application.conf` with the new adapter configuration
 
 ### Development Workflow
 
-1. Model domain entities in `modules/domain`
-2. Define ports in `modules/application/ports`
-3. Implement use cases in `modules/application/usecase`
-4. Create adapters in `modules/infrastructure/adapters`
-5. Wire everything in `modules/infrastructure/runtime`
+1. Model domain entities in `linguapipe-domain`
+2. Define ports in `linguapipe-application/***/ports`
+3. Implement use cases in `linguapipe-application/***/usecase`
+4. Create adapters in `linguapipe-infrastructure/***/adapters`
+5. Wire everything in `linguapipe-infrastructure/***/runtime`
 6. Configure in `application.conf`
 
 ## 🧪 Testing
@@ -193,18 +206,13 @@ To add a new driving adapter (e.g., WebSocket, CLI, etc.):
 sbt test
 
 # Run tests for a specific module
-sbt domain/test
-sbt application/test
-sbt infrastructure/test
+sbt linguapipe-domain/test
+sbt linguapipe-application/test
+sbt linguapipe-infrastructure/test
 
 # Run tests with coverage
 sbt coverage test coverageReport
 ```
-
-### Testing Strategy
-
-- **Domain tests**: Pure unit tests, no ZIO runtime needed
-- **Infrastructure tests**: Integration tests with real adapters (or testcontainers)
 
 ## 📚 Documentation
 
