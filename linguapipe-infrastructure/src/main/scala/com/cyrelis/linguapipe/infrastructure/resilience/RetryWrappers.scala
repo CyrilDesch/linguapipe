@@ -59,6 +59,14 @@ object RetryWrappers {
       RetryService.applyRetry(withTimeout, retryConfig)
     }
 
+    override def getAllTranscripts(): ZIO[Any, PipelineError, List[Transcript]] = {
+      val withTimeout = TimeoutService.applyDatabaseTimeout(
+        underlying.getAllTranscripts(),
+        timeoutConfig
+      )
+      RetryService.applyRetry(withTimeout, retryConfig)
+    }
+
     override def healthCheck(): Task[HealthStatus] =
       underlying.healthCheck()
   }

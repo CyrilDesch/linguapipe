@@ -23,10 +23,10 @@ final class PdfBoxParser extends DocumentParserPort {
       }
     }
 
-  private def parsePdf(base64Content: String): Task[String] =
+  private def parsePdf(_base64Content: String): Task[String] =
     ZIO.attempt {
       // TODO: Implement with Apache PDFBox
-      // val bytes = Base64.getDecoder.decode(base64Content)
+      // val bytes = Base64.getDecoder.decode(_base64Content)
       // val document = PDDocument.load(bytes)
       // try {
       //   val stripper = new PDFTextStripper()
@@ -39,7 +39,7 @@ final class PdfBoxParser extends DocumentParserPort {
       "[PDF text extraction not yet implemented]"
     }
 
-  private def parseOfficeDocument(base64Content: String, mediaType: String): Task[String] =
+  private def parseOfficeDocument(_base64Content: String, mediaType: String): Task[String] =
     ZIO.attempt {
       // TODO: Implement with Apache POI for .docx, .xlsx, etc.
       s"[Office document extraction not yet implemented for $mediaType]"

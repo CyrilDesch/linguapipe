@@ -3,8 +3,9 @@ package com.cyrelis.linguapipe.infrastructure.adapters.driving.gateway.rest
 import java.io.File
 
 import com.cyrelis.linguapipe.application.types.HealthStatus
+import io.circe.Codec
+import io.circe.generic.semiauto.deriveCodec
 import sttp.model.Part
-import zio.json.*
 
 final case class AudioIngestMultipartDto(file: Part[File])
 final case class TextIngestRestDto(content: String)
@@ -26,23 +27,19 @@ final case class HealthStatusRestDto(
 )
 
 object TextIngestRestDto {
-  given JsonEncoder[TextIngestRestDto] = DeriveJsonEncoder.gen[TextIngestRestDto]
-  given JsonDecoder[TextIngestRestDto] = DeriveJsonDecoder.gen[TextIngestRestDto]
+  given Codec[TextIngestRestDto] = deriveCodec
 }
 
 object DocumentIngestRestDto {
-  given JsonEncoder[DocumentIngestRestDto] = DeriveJsonEncoder.gen[DocumentIngestRestDto]
-  given JsonDecoder[DocumentIngestRestDto] = DeriveJsonDecoder.gen[DocumentIngestRestDto]
+  given Codec[DocumentIngestRestDto] = deriveCodec
 }
 
 object IngestionResultRestDto {
-  given JsonEncoder[IngestionResultRestDto] = DeriveJsonEncoder.gen[IngestionResultRestDto]
-  given JsonDecoder[IngestionResultRestDto] = DeriveJsonDecoder.gen[IngestionResultRestDto]
+  given Codec[IngestionResultRestDto] = deriveCodec
 }
 
 object HealthStatusRestDto {
-  given JsonEncoder[HealthStatusRestDto] = DeriveJsonEncoder.gen[HealthStatusRestDto]
-  given JsonDecoder[HealthStatusRestDto] = DeriveJsonDecoder.gen[HealthStatusRestDto]
+  given Codec[HealthStatusRestDto] = deriveCodec
 
   def fromApplication(healthStatus: HealthStatus): HealthStatusRestDto = healthStatus match {
     case HealthStatus.Healthy(serviceName, checkedAt, details) =>

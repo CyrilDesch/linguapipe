@@ -4,7 +4,7 @@ import sbt.Keys.*
 object Dependencies {
   object Versions {
     val auth0      = "4.5.0"
-    val chimney    = "1.6.0"
+    val circe      = "0.14.14"
     val flywaydb   = "11.8.1"
     val logback    = "1.5.18"
     val mUnit      = "1.0.2"
@@ -61,8 +61,7 @@ object Dependencies {
   val domainLibraryDependencies: Setting[Seq[ModuleID]] =
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio-prelude"          % Versions.zioPrelude,
-      "dev.zio" %% "zio-prelude-magnolia" % Versions.zioPrelude,
-      "dev.zio" %% "zio-json"             % "0.7.40"
+      "dev.zio" %% "zio-prelude-magnolia" % Versions.zioPrelude
     )
 
   val applicationLibraryDependencies: Setting[Seq[ModuleID]] =
@@ -76,13 +75,14 @@ object Dependencies {
         jwtDependencies ++
         databaseDependencies ++
         quillDependencies ++ Seq(
-          "io.scalaland"                  %% "chimney"                  % Versions.chimney,
           "com.softwaremill.sttp.client4" %% "core"                     % Versions.sttp,
           "com.softwaremill.sttp.client4" %% "zio"                      % Versions.sttp,
-          "com.softwaremill.sttp.client4" %% "zio-json"                 % Versions.sttp,
+          "io.circe"                      %% "circe-core"               % Versions.circe,
+          "io.circe"                      %% "circe-generic"            % Versions.circe,
+          "io.circe"                      %% "circe-parser"             % Versions.circe,
           "com.softwaremill.sttp.tapir"   %% "tapir-zio"                % Versions.tapir,
           "com.softwaremill.sttp.tapir"   %% "tapir-iron"               % Versions.tapir,
-          "com.softwaremill.sttp.tapir"   %% "tapir-json-zio"           % Versions.tapir,
+          "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"         % Versions.tapir,
           "com.softwaremill.sttp.tapir"   %% "tapir-zio-http-server"    % Versions.tapir,
           "com.softwaremill.sttp.tapir"   %% "tapir-prometheus-metrics" % Versions.tapir,
           "com.softwaremill.sttp.tapir"   %% "tapir-swagger-ui-bundle"  % Versions.tapir,

@@ -45,35 +45,31 @@ final class DefaultIngestPipeline(
       _             <- vectorSink.upsertEmbeddings(transcript.id, List(embedding))
     } yield transcript
 
-  private def createTranscriptFromText(content: String): Transcript = {
-    val metadata = TranscriptMetadata(
+  private def createTranscriptFromText(content: String): Transcript =
+    Transcript(
+      id = UUID.randomUUID(),
+      language = None,
+      text = content,
+      confidence = 1.0, // Perfect confidence for text input
+      createdAt = Instant.now(),
       source = IngestSource.Text,
       attributes = Map.empty
     )
-    Transcript(
-      id = UUID.randomUUID(),
-      text = content,
-      createdAt = Instant.now(),
-      metadata = metadata
-    )
-  }
 
   private def createTranscriptFromDocument(
     extractedText: String,
     mediaType: String
-  ): Transcript = {
-    val metadata = TranscriptMetadata(
+  ): Transcript =
+    Transcript(
+      id = UUID.randomUUID(),
+      language = None,
+      text = extractedText,
+      confidence = 1.0, // Perfect confidence for document extraction
+      createdAt = Instant.now(),
       source = IngestSource.Document,
       attributes = Map(
         "processing_method" -> "document_extraction",
         "media_type"        -> mediaType
       )
     )
-    Transcript(
-      id = UUID.randomUUID(),
-      text = extractedText,
-      createdAt = Instant.now(),
-      metadata = metadata
-    )
-  }
 }

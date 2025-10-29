@@ -2,21 +2,30 @@ package com.cyrelis.linguapipe.infrastructure.config
 
 import com.cyrelis.linguapipe.application.ports.driven.*
 import com.cyrelis.linguapipe.infrastructure.adapters.driven.blobstore.MinioAdapter
-import com.cyrelis.linguapipe.infrastructure.adapters.driven.database.postgres.PostgresTranscriptSink
+import com.cyrelis.linguapipe.infrastructure.adapters.driven.database.postgres.{PostgresTranscriptSink, QuillContext}
 import com.cyrelis.linguapipe.infrastructure.adapters.driven.documentparser.PdfBoxParser
 import com.cyrelis.linguapipe.infrastructure.adapters.driven.embedder.EmbeddingService
 import com.cyrelis.linguapipe.infrastructure.adapters.driven.transcriber.WhisperAdapter
 import com.cyrelis.linguapipe.infrastructure.adapters.driven.vectorstore.VectorStoreSink
 import com.cyrelis.linguapipe.infrastructure.adapters.driving.Gateway
 import com.cyrelis.linguapipe.infrastructure.adapters.driving.gateway.rest.IngestRestGateway
+import io.getquill.*
+import io.getquill.jdbczio.Quill
+import zio.*
 
 object AdapterFactory {
 
-  def createDatabaseAdapter(config: DatabaseAdapterConfig): DbSinkPort =
+  def createDatabaseAdapterLayer(config: DatabaseAdapterConfig): ZLayer[Any, Throwable, DbSinkPort] =
     config match {
       case cfg: DatabaseAdapterConfig.Postgres =>
-        new PostgresTranscriptSink(cfg)
+        QuillContext.createLayer(cfg) >>>
+          ZLayer.fromFunction((quill: Quill.Postgres[SnakeCase]) => new PostgresTranscriptSink(cfg, quill))
     }
+
+  def createDatabaseAdapter(config: DatabaseAdapterConfig): DbSinkPort =
+    throw new UnsupportedOperationException(
+      "Database adapter now requires ZLayer. Use createDatabaseAdapterLayer instead."
+    )
 
   def createVectorStoreAdapter(config: VectorStoreAdapterConfig): VectorSinkPort =
     config match {

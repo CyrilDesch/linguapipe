@@ -19,6 +19,7 @@ trait EmbedderPort {
 
 trait DbSinkPort {
   def persistTranscript(transcript: Transcript): ZIO[Any, PipelineError, Unit]
+  def getAllTranscripts(): ZIO[Any, PipelineError, List[Transcript]]
   def healthCheck(): Task[HealthStatus]
 }
 

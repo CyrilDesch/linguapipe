@@ -1,5 +1,6 @@
 package com.cyrelis.linguapipe.infrastructure.runtime
 
+import com.cyrelis.linguapipe.application.ports.driven.DbSinkPort
 import com.cyrelis.linguapipe.application.ports.driving.{HealthCheckPort, IngestPort}
 import com.cyrelis.linguapipe.application.usecase.{DefaultHealthCheckUseCase, DefaultIngestPipeline}
 import com.cyrelis.linguapipe.infrastructure.adapters.driving.Gateway
@@ -9,15 +10,16 @@ import zio.*
 
 object ModuleWiring {
 
-  val pipelineLayer: ZLayer[RuntimeConfig, Nothing, IngestPort] =
+  val pipelineLayer: ZLayer[RuntimeConfig, Throwable, IngestPort] =
     ZLayer {
       for {
         config        <- ZIO.service[RuntimeConfig]
         adaptersConfig = config.adapters.driven
 
-        baseTranscriber    = AdapterFactory.createTranscriberAdapter(adaptersConfig.transcriber)
-        baseEmbedder       = AdapterFactory.createEmbedderAdapter(adaptersConfig.embedder)
-        baseDbSink         = AdapterFactory.createDatabaseAdapter(adaptersConfig.database)
+        baseTranscriber = AdapterFactory.createTranscriberAdapter(adaptersConfig.transcriber)
+        baseEmbedder    = AdapterFactory.createEmbedderAdapter(adaptersConfig.embedder)
+        baseDbSink     <-
+          ZIO.service[DbSinkPort].provide(AdapterFactory.createDatabaseAdapterLayer(adaptersConfig.database))
         baseVectorSink     = AdapterFactory.createVectorStoreAdapter(adaptersConfig.vectorStore)
         baseBlobStore      = AdapterFactory.createBlobStoreAdapter(adaptersConfig.blobStore)
         baseDocumentParser = AdapterFactory.createDocumentParserAdapter()
@@ -39,7 +41,7 @@ object ModuleWiring {
       )
     }
 
-  val healthCheckLayer: ZLayer[RuntimeConfig, Nothing, HealthCheckPort] =
+  val healthCheckLayer: ZLayer[RuntimeConfig, Throwable, HealthCheckPort] =
     ZLayer {
       for {
         config        <- ZIO.service[RuntimeConfig]
@@ -47,9 +49,10 @@ object ModuleWiring {
 
         baseTranscriber = AdapterFactory.createTranscriberAdapter(adaptersConfig.transcriber)
         baseEmbedder    = AdapterFactory.createEmbedderAdapter(adaptersConfig.embedder)
-        baseDbSink      = AdapterFactory.createDatabaseAdapter(adaptersConfig.database)
-        baseVectorSink  = AdapterFactory.createVectorStoreAdapter(adaptersConfig.vectorStore)
-        baseBlobStore   = AdapterFactory.createBlobStoreAdapter(adaptersConfig.blobStore)
+        baseDbSink     <-
+          ZIO.service[DbSinkPort].provide(AdapterFactory.createDatabaseAdapterLayer(adaptersConfig.database))
+        baseVectorSink = AdapterFactory.createVectorStoreAdapter(adaptersConfig.vectorStore)
+        baseBlobStore  = AdapterFactory.createBlobStoreAdapter(adaptersConfig.blobStore)
 
         transcriber = RetryWrappers.wrapTranscriber(baseTranscriber, config.retry, config.timeouts)
         embedder    = RetryWrappers.wrapEmbedder(baseEmbedder, config.retry, config.timeouts)

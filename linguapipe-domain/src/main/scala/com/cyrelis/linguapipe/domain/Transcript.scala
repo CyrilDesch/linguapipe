@@ -5,12 +5,10 @@ import java.util.UUID
 
 final case class Transcript(
   id: UUID,
+  language: Option[LanguageCode],
   text: String,
+  confidence: Double,
   createdAt: Instant,
-  metadata: TranscriptMetadata
-)
-
-final case class TranscriptMetadata(
   source: IngestSource,
   attributes: Map[String, String]
 )

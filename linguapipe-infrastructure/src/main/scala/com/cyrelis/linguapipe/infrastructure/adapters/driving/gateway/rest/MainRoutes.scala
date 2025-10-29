@@ -7,7 +7,7 @@ import com.cyrelis.linguapipe.application.ports.driving.{HealthCheckPort, Ingest
 import sttp.model.Part
 import sttp.tapir.*
 import sttp.tapir.generic.auto.*
-import sttp.tapir.json.zio.*
+import sttp.tapir.json.circe.*
 import sttp.tapir.ztapir.RichZEndpoint
 import zio.*
 import zio.http.*

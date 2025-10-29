@@ -20,7 +20,7 @@ LinguaPipe is designed with **Hexagonal Architecture** principles, making it eas
 - [x] Implement REST Gateway
 - [x] Implement a Transcriber Adapter
 - [x] Allow audio ingestion
-- [ ] Implement a Database Adapter
+- [x] Implement a Database Adapter
 - [ ] Implement an Embedder Adapter
 - [ ] Implement a Vector Store Adapter
 - [ ] Implement a Blob Store Adapter
