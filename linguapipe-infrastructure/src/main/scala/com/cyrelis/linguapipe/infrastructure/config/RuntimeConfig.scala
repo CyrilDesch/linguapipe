@@ -7,7 +7,9 @@ final case class RuntimeConfig(
   api: ApiConfig,
   adapters: AdaptersConfig,
   migrations: MigrationConfig,
-  fixtures: FixtureConfig
+  fixtures: FixtureConfig,
+  retry: RetryConfig,
+  timeouts: TimeoutConfig
 )
 
 final case class MigrationConfig(
@@ -17,6 +19,23 @@ final case class MigrationConfig(
 
 final case class FixtureConfig(
   loadOnStartup: Boolean
+)
+
+final case class RetryConfig(
+  enabled: Boolean,
+  maxRetries: Int,
+  initialDelayMs: Long,
+  maxDelayMs: Long,
+  backoffFactor: Double
+)
+
+final case class TimeoutConfig(
+  transcriptionMs: Long,
+  embeddingMs: Long,
+  databaseMs: Long,
+  vectorStoreMs: Long,
+  blobStoreMs: Long,
+  documentParserMs: Long
 )
 
 final case class ApiConfig(host: String, port: Int)

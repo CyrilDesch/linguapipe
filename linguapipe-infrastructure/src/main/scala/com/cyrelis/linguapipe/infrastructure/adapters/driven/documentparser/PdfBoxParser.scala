@@ -2,21 +2,25 @@ package com.cyrelis.linguapipe.infrastructure.adapters.driven.documentparser
 
 import java.util.Base64
 
+import com.cyrelis.linguapipe.application.errors.PipelineError
 import com.cyrelis.linguapipe.application.ports.driven.DocumentParserPort
+import com.cyrelis.linguapipe.infrastructure.resilience.ErrorMapper
 import zio.*
 
 final class PdfBoxParser extends DocumentParserPort {
 
-  override def parseDocument(documentContent: String, mediaType: String): Task[String] =
-    mediaType match {
-      case mt if mt.startsWith("application/pdf") =>
-        parsePdf(documentContent)
-      case mt if mt.contains("officedocument") || mt.contains("msword") =>
-        parseOfficeDocument(documentContent, mt)
-      case mt if mt.startsWith("text/") =>
-        parseTextDocument(documentContent)
-      case unsupported =>
-        ZIO.fail(new UnsupportedOperationException(s"Unsupported media type: $unsupported"))
+  override def parseDocument(documentContent: String, mediaType: String): ZIO[Any, PipelineError, String] =
+    ErrorMapper.mapDocumentParserError {
+      mediaType match {
+        case mt if mt.startsWith("application/pdf") =>
+          parsePdf(documentContent)
+        case mt if mt.contains("officedocument") || mt.contains("msword") =>
+          parseOfficeDocument(documentContent, mt)
+        case mt if mt.startsWith("text/") =>
+          parseTextDocument(documentContent)
+        case unsupported =>
+          ZIO.fail(new UnsupportedOperationException(s"Unsupported media type: $unsupported"))
+      }
     }
 
   private def parsePdf(base64Content: String): Task[String] =

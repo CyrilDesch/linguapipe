@@ -10,6 +10,7 @@ import com.cyrelis.linguapipe.application.ports.driven.TranscriberPort
 import com.cyrelis.linguapipe.application.types.HealthStatus
 import com.cyrelis.linguapipe.domain.{IngestSource, Transcript, TranscriptMetadata}
 import com.cyrelis.linguapipe.infrastructure.config.TranscriberAdapterConfig
+import com.cyrelis.linguapipe.infrastructure.resilience.ErrorMapper
 import sttp.client4.*
 import sttp.client4.httpclient.zio.HttpClientZioBackend
 import sttp.model.MediaType
@@ -33,29 +34,34 @@ class WhisperAdapter(config: TranscriberAdapterConfig.Whisper) extends Transcrib
       .version(HttpClient.Version.HTTP_1_1)
       .build()
 
-  override def transcribe(audioContent: Array[Byte], format: String): Task[Transcript] = {
+  override def transcribe(
+    audioContent: Array[Byte],
+    format: String
+  ): ZIO[Any, com.cyrelis.linguapipe.application.errors.PipelineError, Transcript] = {
     val transcriptId = UUID.randomUUID()
     val now          = Instant.now()
 
-    for {
-      response        <- makeWhisperRequest(audioContent, format)
-      whisperResponse <- parseWhisperResponse(response, audioContent.length, format)
-      transcript      <- ZIO.succeed(
-                      Transcript(
-                        id = transcriptId,
-                        text = whisperResponse.text,
-                        createdAt = now,
-                        metadata = TranscriptMetadata(
-                          source = IngestSource.Audio,
-                          attributes = Map(
-                            "provider" -> "whisper",
-                            "model"    -> config.modelPath,
-                            "api_url"  -> config.apiUrl
+    ErrorMapper.mapTranscriptionError {
+      for {
+        response        <- makeWhisperRequest(audioContent, format)
+        whisperResponse <- parseWhisperResponse(response, audioContent.length, format)
+        transcript      <- ZIO.succeed(
+                        Transcript(
+                          id = transcriptId,
+                          text = whisperResponse.text,
+                          createdAt = now,
+                          metadata = TranscriptMetadata(
+                            source = IngestSource.Audio,
+                            attributes = Map(
+                              "provider" -> "whisper",
+                              "model"    -> config.modelPath,
+                              "api_url"  -> config.apiUrl
+                            )
                           )
                         )
                       )
-                    )
-    } yield transcript
+      } yield transcript
+    }
   }
 
   protected def makeWhisperRequest(

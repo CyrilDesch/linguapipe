@@ -2,6 +2,7 @@ package com.cyrelis.linguapipe.infrastructure.adapters.driving.gateway.rest
 
 import java.nio.file.Files
 
+import com.cyrelis.linguapipe.application.errors.PipelineError
 import com.cyrelis.linguapipe.application.ports.driving.{HealthCheckPort, IngestPort}
 import sttp.model.Part
 import sttp.tapir.*
@@ -12,6 +13,11 @@ import zio.*
 import zio.http.*
 
 object MainRoutes {
+
+  private def errorToString(error: Throwable | PipelineError): String = error match {
+    case pipelineError: PipelineError => pipelineError.message
+    case throwable: Throwable         => throwable.getMessage
+  }
 
   private val healthEndpoint: PublicEndpoint[Unit, String, List[HealthStatusRestDto], Any] =
     sttp.tapir.endpoint.get
@@ -81,7 +87,7 @@ object MainRoutes {
                             completedAt = transcript.createdAt.toString
                           )
                         )
-            } yield result).mapError(_.getMessage)
+            } yield result).mapError(errorToString)
           },
           ingestTextEndpoint.zServerLogic { req =>
             ingestPort
@@ -93,7 +99,7 @@ object MainRoutes {
                   completedAt = transcript.createdAt.toString
                 )
               }
-              .mapError(_.getMessage)
+              .mapError(errorToString)
           },
           ingestDocumentEndpoint.zServerLogic { req =>
             ingestPort
@@ -105,7 +111,7 @@ object MainRoutes {
                   completedAt = transcript.createdAt.toString
                 )
               }
-              .mapError(_.getMessage)
+              .mapError(errorToString)
           }
         )
       )

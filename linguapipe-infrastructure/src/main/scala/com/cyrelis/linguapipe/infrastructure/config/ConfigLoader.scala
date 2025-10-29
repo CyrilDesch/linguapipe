@@ -13,7 +13,9 @@ object ConfigLoader {
       api = loadApiConfig(config),
       adapters = loadAdaptersConfig(config),
       migrations = loadMigrationConfig(config),
-      fixtures = loadFixtureConfig(config)
+      fixtures = loadFixtureConfig(config),
+      retry = loadRetryConfig(config),
+      timeouts = loadTimeoutConfig(config)
     )
   }
 
@@ -33,6 +35,74 @@ object ConfigLoader {
         config.getBoolean("fixtures.load-on-startup")
       } else false
     )
+
+  private def loadRetryConfig(config: Config): RetryConfig = {
+    val retryPath = "retry"
+    if (config.hasPath(retryPath)) {
+      val retryConfig = config.getConfig(retryPath)
+      RetryConfig(
+        enabled = if (retryConfig.hasPath("enabled")) {
+          retryConfig.getBoolean("enabled")
+        } else true,
+        maxRetries = if (retryConfig.hasPath("max-retries")) {
+          retryConfig.getInt("max-retries")
+        } else 3,
+        initialDelayMs = if (retryConfig.hasPath("initial-delay-ms")) {
+          retryConfig.getLong("initial-delay-ms")
+        } else 100,
+        maxDelayMs = if (retryConfig.hasPath("max-delay-ms")) {
+          retryConfig.getLong("max-delay-ms")
+        } else 5000,
+        backoffFactor = if (retryConfig.hasPath("backoff-factor")) {
+          retryConfig.getDouble("backoff-factor")
+        } else 2.0
+      )
+    } else {
+      RetryConfig(
+        enabled = true,
+        maxRetries = 3,
+        initialDelayMs = 100,
+        maxDelayMs = 5000,
+        backoffFactor = 2.0
+      )
+    }
+  }
+
+  private def loadTimeoutConfig(config: Config): TimeoutConfig = {
+    val timeoutPath = "timeouts"
+    if (config.hasPath(timeoutPath)) {
+      val timeoutConfig = config.getConfig(timeoutPath)
+      TimeoutConfig(
+        transcriptionMs = if (timeoutConfig.hasPath("transcription-ms")) {
+          timeoutConfig.getLong("transcription-ms")
+        } else 300000,
+        embeddingMs = if (timeoutConfig.hasPath("embedding-ms")) {
+          timeoutConfig.getLong("embedding-ms")
+        } else 30000,
+        databaseMs = if (timeoutConfig.hasPath("database-ms")) {
+          timeoutConfig.getLong("database-ms")
+        } else 5000,
+        vectorStoreMs = if (timeoutConfig.hasPath("vector-store-ms")) {
+          timeoutConfig.getLong("vector-store-ms")
+        } else 10000,
+        blobStoreMs = if (timeoutConfig.hasPath("blob-store-ms")) {
+          timeoutConfig.getLong("blob-store-ms")
+        } else 15000,
+        documentParserMs = if (timeoutConfig.hasPath("document-parser-ms")) {
+          timeoutConfig.getLong("document-parser-ms")
+        } else 60000
+      )
+    } else {
+      TimeoutConfig(
+        transcriptionMs = 300000,
+        embeddingMs = 30000,
+        databaseMs = 5000,
+        vectorStoreMs = 10000,
+        blobStoreMs = 15000,
+        documentParserMs = 60000
+      )
+    }
+  }
 
   private def loadApiConfig(config: Config): ApiConfig =
     ApiConfig(

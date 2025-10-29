@@ -3,6 +3,7 @@ package com.cyrelis.linguapipe.infrastructure.adapters.driving.gateway.rest
 import java.nio.file.Files
 import java.util.{Base64, UUID}
 
+import com.cyrelis.linguapipe.application.errors.PipelineError
 import com.cyrelis.linguapipe.infrastructure.config.{AdapterFactory, RuntimeConfig}
 import sttp.tapir.*
 import sttp.tapir.generic.auto.*
@@ -13,6 +14,11 @@ import zio.*
 import zio.http.*
 
 object TestRoutes {
+
+  private def errorToString(error: Throwable | PipelineError): String = error match {
+    case pipelineError: PipelineError => pipelineError.message
+    case throwable: Throwable         => throwable.getMessage
+  }
 
   // Test endpoints for individual adapters
   private val testTranscriberEndpoint
@@ -79,7 +85,7 @@ object TestRoutes {
                             result = transcript.text
                           )
                         )
-            } yield result).mapError(_.getMessage)
+            } yield result).mapError(errorToString)
           },
           testEmbedderEndpoint.zServerLogic { req =>
             val transcript = com.cyrelis.linguapipe.domain.Transcript(
@@ -98,7 +104,7 @@ object TestRoutes {
                   result = s"${embedding.length} dimensions"
                 )
               )
-              .mapError(_.getMessage)
+              .mapError(errorToString)
           },
           testBlobStoreEndpoint.zServerLogic { req =>
             (for {
@@ -110,7 +116,7 @@ object TestRoutes {
                             result = jobId.toString
                           )
                         )
-            } yield result).mapError(_.getMessage)
+            } yield result).mapError(errorToString)
           },
           testDocumentParserEndpoint.zServerLogic { req =>
             documentParser
@@ -120,7 +126,7 @@ object TestRoutes {
                   result = text.take(100)
                 )
               )
-              .mapError(_.getMessage)
+              .mapError(errorToString)
           }
         )
       )

@@ -26,6 +26,7 @@ LinguaPipe is designed with **Hexagonal Architecture** principles, making it eas
 - [ ] Implement a Blob Store Adapter
 - [ ] Allow text and PDF ingestion
 - [ ] Implement gRPC Gateway
+- [x] Implement Retry and Timeout Services
 
 ## 📋 Prerequisites
 

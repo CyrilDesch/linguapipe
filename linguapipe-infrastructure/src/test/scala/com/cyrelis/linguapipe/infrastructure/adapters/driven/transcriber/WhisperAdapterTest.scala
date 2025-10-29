@@ -1,5 +1,6 @@
 package com.cyrelis.linguapipe.infrastructure.adapters.driven.transcriber
 
+import com.cyrelis.linguapipe.application.errors.PipelineError
 import com.cyrelis.linguapipe.application.types.HealthStatus
 import com.cyrelis.linguapipe.infrastructure.config.TranscriberAdapterConfig
 import sttp.client4.*
@@ -150,7 +151,7 @@ object WhisperAdapterTest extends ZIOSpecDefault {
         val audioBytes = "audio data".getBytes
 
         assertZIO(adapter.transcribe(audioBytes, "wav").exit)(
-          fails(isSubtype[RuntimeException](hasMessage(equalTo(errorMessage))))
+          fails(isSubtype[PipelineError.TranscriptionError](hasField("message", _.message, equalTo(errorMessage))))
         )
       },
       test("should handle different audio formats") {
