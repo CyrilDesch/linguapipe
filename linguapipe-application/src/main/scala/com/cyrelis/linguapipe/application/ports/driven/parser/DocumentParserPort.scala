@@ -1,4 +1,4 @@
-package com.cyrelis.linguapipe.application.ports.driven
+package com.cyrelis.linguapipe.application.ports.driven.parser
 
 import com.cyrelis.linguapipe.application.errors.PipelineError
 import zio.*

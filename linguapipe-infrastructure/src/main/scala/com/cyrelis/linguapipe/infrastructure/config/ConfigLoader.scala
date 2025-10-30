@@ -1,5 +1,8 @@
 package com.cyrelis.linguapipe.infrastructure.config
 
+import scala.concurrent.duration.{FiniteDuration, MILLISECONDS}
+
+import com.cyrelis.linguapipe.application.types.JobProcessingConfig
 import com.typesafe.config.{Config, ConfigFactory}
 import zio.*
 
@@ -15,7 +18,8 @@ object ConfigLoader {
       migrations = loadMigrationConfig(config),
       fixtures = loadFixtureConfig(config),
       retry = loadRetryConfig(config),
-      timeouts = loadTimeoutConfig(config)
+      timeouts = loadTimeoutConfig(config),
+      jobProcessing = loadJobProcessingConfig(config)
     )
   }
 
@@ -104,6 +108,40 @@ object ConfigLoader {
     }
   }
 
+  private def loadJobProcessingConfig(config: Config): JobProcessingConfig = {
+    val jobPath = "jobs"
+
+    if (config.hasPath(jobPath)) {
+      val jobConfig = config.getConfig(jobPath)
+      JobProcessingConfig(
+        maxAttempts = if (jobConfig.hasPath("max-attempts")) jobConfig.getInt("max-attempts") else 5,
+        pollInterval = FiniteDuration(
+          if (jobConfig.hasPath("poll-interval-ms")) jobConfig.getLong("poll-interval-ms") else 1000L,
+          MILLISECONDS
+        ),
+        batchSize = if (jobConfig.hasPath("batch-size")) jobConfig.getInt("batch-size") else 5,
+        initialRetryDelay = FiniteDuration(
+          if (jobConfig.hasPath("initial-retry-delay-ms")) jobConfig.getLong("initial-retry-delay-ms") else 2000L,
+          MILLISECONDS
+        ),
+        maxRetryDelay = FiniteDuration(
+          if (jobConfig.hasPath("max-retry-delay-ms")) jobConfig.getLong("max-retry-delay-ms") else 60000L,
+          MILLISECONDS
+        ),
+        backoffFactor = if (jobConfig.hasPath("backoff-factor")) jobConfig.getDouble("backoff-factor") else 2.0
+      )
+    } else {
+      JobProcessingConfig(
+        maxAttempts = 5,
+        pollInterval = FiniteDuration(1000L, MILLISECONDS),
+        batchSize = 5,
+        initialRetryDelay = FiniteDuration(2000L, MILLISECONDS),
+        maxRetryDelay = FiniteDuration(60000L, MILLISECONDS),
+        backoffFactor = 2.0
+      )
+    }
+  }
+
   private def loadApiConfig(config: Config): ApiConfig =
     ApiConfig(
       host = config.getString("api.host"),
@@ -122,7 +160,8 @@ object ConfigLoader {
       vectorStore = loadVectorStoreConfig(config.getConfig("vector-store")),
       transcriber = loadTranscriberConfig(config.getConfig("transcriber")),
       embedder = loadEmbedderConfig(config.getConfig("embedder")),
-      blobStore = loadBlobStoreConfig(config.getConfig("blob-store"))
+      blobStore = loadBlobStoreConfig(config.getConfig("blob-store")),
+      jobQueue = loadJobQueueConfig(config.getConfig("job-queue"))
     )
 
   private def loadDatabaseConfig(config: Config): DatabaseAdapterConfig = {
@@ -206,6 +245,28 @@ object ConfigLoader {
 
       case other =>
         throw new IllegalArgumentException(s"Unknown blob-store type: $other")
+    }
+  }
+
+  private def loadJobQueueConfig(config: Config): JobQueueAdapterConfig = {
+    val qType = config.getString("type")
+    qType match {
+      case "redis" =>
+        val rConfig = config.getConfig("redis")
+        JobQueueAdapterConfig.Redis(
+          host = rConfig.getString("host"),
+          port = rConfig.getInt("port"),
+          database = if (rConfig.hasPath("database")) rConfig.getInt("database") else 0,
+          password =
+            if (rConfig.hasPath("password") && rConfig.getString("password").nonEmpty)
+              Some(rConfig.getString("password"))
+            else None,
+          queueKey = if (rConfig.hasPath("queue-key")) rConfig.getString("queue-key") else "linguapipe:jobs:queue",
+          deadLetterKey =
+            if (rConfig.hasPath("dead-letter-key")) rConfig.getString("dead-letter-key") else "linguapipe:jobs:dead"
+        )
+      case other =>
+        throw new IllegalArgumentException(s"Unknown job-queue type: $other")
     }
   }
 

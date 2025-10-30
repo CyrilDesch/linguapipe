@@ -6,9 +6,9 @@ import java.util.UUID
 
 import scala.concurrent.duration.*
 
-import com.cyrelis.linguapipe.application.ports.driven.TranscriberPort
+import com.cyrelis.linguapipe.application.ports.driven.transcription.TranscriberPort
 import com.cyrelis.linguapipe.application.types.HealthStatus
-import com.cyrelis.linguapipe.domain.{IngestSource, Transcript}
+import com.cyrelis.linguapipe.domain.transcript.{IngestSource, LanguageCode, Transcript}
 import com.cyrelis.linguapipe.infrastructure.config.TranscriberAdapterConfig
 import com.cyrelis.linguapipe.infrastructure.resilience.ErrorMapper
 import io.circe.Codec
@@ -20,7 +20,8 @@ import sttp.model.MediaType
 import zio.*
 
 final case class WhisperResponse(
-  text: String
+  text: String,
+  language: Option[String]
 )
 
 object WhisperResponse {
@@ -49,12 +50,12 @@ class WhisperAdapter(config: TranscriberAdapterConfig.Whisper) extends Transcrib
         transcript      <- ZIO.succeed(
                         Transcript(
                           id = transcriptId,
-                          language = None,
+                          language = whisperResponse.language.map(LanguageCode.unsafe),
                           text = whisperResponse.text,
                           confidence = 0.8,
                           createdAt = now,
                           source = IngestSource.Audio,
-                          attributes = Map(
+                          metadata = Map(
                             "provider" -> "whisper",
                             "model"    -> config.modelPath
                           )

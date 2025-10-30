@@ -1,4 +1,4 @@
-package com.cyrelis.linguapipe.domain
+package com.cyrelis.linguapipe.domain.transcript
 
 import scala.util.matching.Regex
 

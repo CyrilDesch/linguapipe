@@ -1,5 +1,6 @@
 package com.cyrelis.linguapipe.infrastructure.config
 
+import com.cyrelis.linguapipe.application.types.JobProcessingConfig
 import zio.*
 
 final case class RuntimeConfig(
@@ -9,7 +10,8 @@ final case class RuntimeConfig(
   migrations: MigrationConfig,
   fixtures: FixtureConfig,
   retry: RetryConfig,
-  timeouts: TimeoutConfig
+  timeouts: TimeoutConfig,
+  jobProcessing: JobProcessingConfig
 )
 
 final case class MigrationConfig(
@@ -50,7 +52,8 @@ final case class DrivenAdaptersConfig(
   vectorStore: VectorStoreAdapterConfig,
   transcriber: TranscriberAdapterConfig,
   embedder: EmbedderAdapterConfig,
-  blobStore: BlobStoreAdapterConfig
+  blobStore: BlobStoreAdapterConfig,
+  jobQueue: JobQueueAdapterConfig
 )
 
 final case class DrivingAdaptersConfig(
@@ -77,6 +80,16 @@ enum EmbedderAdapterConfig:
 
 enum BlobStoreAdapterConfig:
   case MinIO(endpoint: String, accessKey: String, secretKey: String, bucket: String)
+
+enum JobQueueAdapterConfig:
+  case Redis(
+    host: String,
+    port: Int,
+    database: Int,
+    password: Option[String],
+    queueKey: String,
+    deadLetterKey: String
+  )
 
 enum ApiAdapterConfig:
   case REST(host: String, port: Int)

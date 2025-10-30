@@ -31,6 +31,11 @@ object PipelineError {
     override val cause: Option[Throwable] = None
   ) extends PipelineError
 
+  final case class QueueError(
+    message: String,
+    override val cause: Option[Throwable] = None
+  ) extends PipelineError
+
   final case class DocumentParserError(
     message: String,
     override val cause: Option[Throwable] = None

@@ -1,21 +1,8 @@
-package com.cyrelis.linguapipe.infrastructure.adapters.driving.gateway.rest
-
-import java.io.File
+package com.cyrelis.linguapipe.infrastructure.adapters.driving.gateway.rest.dto.main
 
 import com.cyrelis.linguapipe.application.types.HealthStatus
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
-import sttp.model.Part
-
-final case class AudioIngestMultipartDto(file: Part[File])
-final case class TextIngestRestDto(content: String)
-final case class DocumentIngestRestDto(content: String, mediaType: String)
-
-final case class IngestionResultRestDto(
-  transcriptId: String,
-  segmentsEmbedded: Int,
-  completedAt: String
-)
 
 final case class HealthStatusRestDto(
   status: String,
@@ -26,22 +13,10 @@ final case class HealthStatusRestDto(
   details: Map[String, String] = Map.empty
 )
 
-object TextIngestRestDto {
-  given Codec[TextIngestRestDto] = deriveCodec
-}
-
-object DocumentIngestRestDto {
-  given Codec[DocumentIngestRestDto] = deriveCodec
-}
-
-object IngestionResultRestDto {
-  given Codec[IngestionResultRestDto] = deriveCodec
-}
-
 object HealthStatusRestDto {
   given Codec[HealthStatusRestDto] = deriveCodec
 
-  def fromApplication(healthStatus: HealthStatus): HealthStatusRestDto = healthStatus match {
+  def fromDomain(healthStatus: HealthStatus): HealthStatusRestDto = healthStatus match {
     case HealthStatus.Healthy(serviceName, checkedAt, details) =>
       HealthStatusRestDto(
         status = "healthy",

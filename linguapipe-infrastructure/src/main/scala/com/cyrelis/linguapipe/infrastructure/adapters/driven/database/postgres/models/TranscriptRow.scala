@@ -3,7 +3,7 @@ package com.cyrelis.linguapipe.infrastructure.adapters.driven.database.postgres.
 import java.sql.Timestamp
 import java.util.UUID
 
-import com.cyrelis.linguapipe.domain.{IngestSource, LanguageCode, Transcript}
+import com.cyrelis.linguapipe.domain.transcript.{IngestSource, LanguageCode, Transcript}
 import io.circe.parser.*
 import io.circe.syntax.*
 import io.getquill.JsonbValue
@@ -15,14 +15,14 @@ final case class TranscriptRow(
   confidence: Double,
   createdAt: Timestamp,
   source: String,
-  attributes: JsonbValue[String]
+  metadata: JsonbValue[String]
 )
 
 object TranscriptRow:
   def fromTranscript(transcript: Transcript): TranscriptRow =
-    val attributesJson = transcript.attributes.asJson.noSpaces
-    val source         = sourceToString(transcript.source)
-    val createdTs      = Timestamp.from(transcript.createdAt)
+    val metadatasJson = transcript.metadata.asJson.noSpaces
+    val source        = sourceToString(transcript.source)
+    val createdTs     = Timestamp.from(transcript.createdAt)
 
     TranscriptRow(
       id = transcript.id,
@@ -31,14 +31,14 @@ object TranscriptRow:
       confidence = transcript.confidence,
       createdAt = createdTs,
       source = source,
-      attributes = JsonbValue(attributesJson)
+      metadata = JsonbValue(metadatasJson)
     )
 
   def toTranscript(row: TranscriptRow): Transcript =
-    val attributes = decode[Map[String, String]](row.attributes.value).getOrElse(Map.empty)
-    val source     = stringToSource(row.source)
-    val createdAt  = row.createdAt.toInstant
-    val language   = row.language.map(LanguageCode.unsafe)
+    val metadata  = decode[Map[String, String]](row.metadata.value).getOrElse(Map.empty)
+    val source    = stringToSource(row.source)
+    val createdAt = row.createdAt.toInstant
+    val language  = row.language.map(LanguageCode.unsafe)
 
     Transcript(
       id = row.id,
@@ -47,7 +47,7 @@ object TranscriptRow:
       confidence = row.confidence,
       createdAt = createdAt,
       source = source,
-      attributes = attributes
+      metadata = metadata
     )
 
   private def sourceToString(source: IngestSource): String =

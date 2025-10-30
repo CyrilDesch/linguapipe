@@ -110,7 +110,8 @@ object WhisperAdapterTest extends ZIOSpecDefault {
     suite("transcription scenarios")(
       test("should successfully transcribe audio and return transcript") {
         val mockResponse = WhisperResponse(
-          text = "Bonjour, ceci est un test de transcription."
+          text = "Bonjour, ceci est un test de transcription.",
+          language = None
         )
         val adapter = new WhisperAdapterTestDouble(testConfig, ZIO.succeed(mockResponse))
 
@@ -120,13 +121,14 @@ object WhisperAdapterTest extends ZIOSpecDefault {
           transcript <- adapter.transcribe(audioBytes, "wav")
         } yield assertTrue(
           transcript.text == "Bonjour, ceci est un test de transcription." &&
-            transcript.attributes("provider") == "whisper" &&
-            transcript.attributes("model") == "whisper-1"
+            transcript.metadata("provider") == "whisper" &&
+            transcript.metadata("model") == "whisper-1"
         )
       },
       test("should include correct metadata in transcript") {
         val mockResponse = WhisperResponse(
-          text = "Test transcript"
+          text = "Test transcript",
+          language = None
         )
         val adapter = new WhisperAdapterTestDouble(testConfig, ZIO.succeed(mockResponse))
 
@@ -135,8 +137,8 @@ object WhisperAdapterTest extends ZIOSpecDefault {
         for {
           transcript <- adapter.transcribe(audioBytes, "mp3")
         } yield assertTrue(
-          transcript.attributes.contains("provider") &&
-            transcript.attributes.contains("model")
+          transcript.metadata.contains("provider") &&
+            transcript.metadata.contains("model")
         )
       },
       test("should propagate transcription errors") {
@@ -154,7 +156,8 @@ object WhisperAdapterTest extends ZIOSpecDefault {
       },
       test("should handle different audio formats") {
         val mockResponse = WhisperResponse(
-          text = "Format test"
+          text = "Format test",
+          language = None
         )
         val adapter = new WhisperAdapterTestDouble(testConfig, ZIO.succeed(mockResponse))
 
