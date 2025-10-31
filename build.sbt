@@ -25,7 +25,9 @@ inThisBuild(
 //      "-Xfatal-warnings"
     ),
     run / fork := true,
-    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    // Help Metals index Java libraries by ensuring proper classpath export
+    exportJars := true
   )
 )
 

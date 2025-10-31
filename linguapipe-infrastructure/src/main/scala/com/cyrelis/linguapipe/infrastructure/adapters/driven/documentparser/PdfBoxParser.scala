@@ -3,7 +3,7 @@ package com.cyrelis.linguapipe.infrastructure.adapters.driven.documentparser
 import java.util.Base64
 
 import com.cyrelis.linguapipe.application.errors.PipelineError
-import com.cyrelis.linguapipe.application.ports.driven.DocumentParserPort
+import com.cyrelis.linguapipe.application.ports.driven.parser.DocumentParserPort
 import com.cyrelis.linguapipe.infrastructure.resilience.ErrorMapper
 import zio.*
 
@@ -35,13 +35,16 @@ final class PdfBoxParser extends DocumentParserPort {
       //   document.close()
       // }
 
-      // Placeholder implementation
+      // Placeholder implementation - decoding to validate format but not using result yet
+      val _ = Base64.getDecoder.decode(base64Content)
       "[PDF text extraction not yet implemented]"
     }
 
   private def parseOfficeDocument(base64Content: String, mediaType: String): Task[String] =
     ZIO.attempt {
       // TODO: Implement with Apache POI for .docx, .xlsx, etc.
+      // Decoding to validate format but not using result yet
+      val _ = Base64.getDecoder.decode(base64Content)
       s"[Office document extraction not yet implemented for $mediaType]"
     }
 

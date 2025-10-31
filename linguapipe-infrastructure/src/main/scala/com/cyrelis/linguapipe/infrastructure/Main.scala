@@ -1,7 +1,17 @@
 package com.cyrelis.linguapipe.infrastructure
 
+import com.cyrelis.linguapipe.application.errors.PipelineError
+import com.cyrelis.linguapipe.application.ports.driven.datasource.DatasourcePort
+import com.cyrelis.linguapipe.application.ports.driven.embedding.EmbedderPort
+import com.cyrelis.linguapipe.application.ports.driven.job.JobQueuePort
+import com.cyrelis.linguapipe.application.ports.driven.parser.DocumentParserPort
+import com.cyrelis.linguapipe.application.ports.driven.storage.{BlobStorePort, VectorStorePort}
+import com.cyrelis.linguapipe.application.ports.driven.transcription.TranscriberPort
 import com.cyrelis.linguapipe.application.ports.driving.{HealthCheckPort, IngestPort}
 import com.cyrelis.linguapipe.application.types.HealthStatus
+import com.cyrelis.linguapipe.application.workers.DefaultIngestionJobWorker
+import com.cyrelis.linguapipe.domain.ingestionjob.IngestionJobRepository
+import com.cyrelis.linguapipe.domain.transcript.TranscriptRepository
 import com.cyrelis.linguapipe.infrastructure.adapters.driving.Gateway
 import com.cyrelis.linguapipe.infrastructure.config.RuntimeConfig
 import com.cyrelis.linguapipe.infrastructure.migration.MigrationRunner
@@ -10,7 +20,10 @@ import zio.*
 
 object Main extends ZIOAppDefault {
 
-  type AppDependencies = RuntimeConfig & IngestPort & HealthCheckPort & Gateway
+  type AllPorts = TranscriberPort & EmbedderPort & TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]] &
+    VectorStorePort & BlobStorePort & DocumentParserPort & IngestionJobRepository[[X] =>> ZIO[Any, PipelineError, X]] &
+    JobQueuePort & DatasourcePort
+  type AppDependencies = RuntimeConfig & IngestPort & HealthCheckPort & Gateway & AllPorts & DefaultIngestionJobWorker
 
   override val bootstrap: ZLayer[ZIOAppArgs, Any, Any] =
     Runtime.removeDefaultLoggers >>> zio.logging.backend.SLF4J.slf4j
@@ -20,18 +33,34 @@ object Main extends ZIOAppDefault {
       RuntimeConfig.layer
         .tapError(err => ZIO.logError(s"Failed to load configuration: ${err.getMessage}"))
         .orDie,
-      ModuleWiring.pipelineLayer,
+      // Adapter layers
+      ModuleWiring.transcriberLayer,
+      ModuleWiring.embedderLayer,
+      ModuleWiring.datasourceLayer,
+      ModuleWiring.transcriptRepositoryLayer,
+      ModuleWiring.vectorSinkLayer,
+      ModuleWiring.blobStoreLayer,
+      ModuleWiring.documentParserLayer,
+      ModuleWiring.jobRepositoryLayer,
+      ModuleWiring.jobQueueLayer,
+      // Use case layers
+      ModuleWiring.ingestServiceLayer,
+      ModuleWiring.jobWorkerLayer,
       ModuleWiring.healthCheckLayer,
+      // Gateway layer
       ModuleWiring.gatewayLayer
     )
 
   private def startup: ZIO[AppDependencies, Nothing, Unit] =
     (for {
-      _ <- ZIO.logInfo("Starting LinguaPipe application...")
-      _ <- runMigrations
-      _ <- runHealthChecks
-      _ <- startGateway
-      _ <- ZIO.never
+      _           <- ZIO.logInfo("Starting LinguaPipe application...")
+      _           <- runMigrations
+      _           <- ensureAllHealthy
+      worker      <- ZIO.service[DefaultIngestionJobWorker]
+      _           <- ZIO.logInfo("Starting ingestion job worker...")
+      workerFiber <- worker.run.forkDaemon
+      _           <- startGateway
+      _           <- ZIO.never.onInterrupt(workerFiber.interrupt)
     } yield ()).orDie
 
   private def runMigrations: ZIO[RuntimeConfig, Throwable, Unit] =
@@ -51,13 +80,32 @@ object Main extends ZIOAppDefault {
            }
     } yield ()
 
-  private def runHealthChecks: ZIO[HealthCheckPort, Throwable, Unit] =
+  private def ensureAllHealthy: ZIO[HealthCheckPort & RuntimeConfig, Throwable, Unit] =
     for {
       healthCheckPort <- ZIO.service[HealthCheckPort]
       _               <- ZIO.logInfo("Running health checks...")
-      healthResults   <- healthCheckPort.checkAllServices().orElse(ZIO.succeed(List.empty))
-      _               <- logHealthResults(healthResults)
-      _               <- ZIO.logInfo("All systems operational")
+      // One health-check attempt that fails if any dependency is unhealthy
+      attempt = for {
+                  results <- healthCheckPort.checkAllServices()
+                  _       <- logHealthResults(results)
+                  hasBad   = results.exists {
+                             case com.cyrelis.linguapipe.application.types.HealthStatus.Healthy(_, _, _) => false
+                             case _                                                                      => true
+                           }
+                  _ <- ZIO.when(hasBad)(
+                         ZIO.fail(new RuntimeException("Unhealthy dependencies detected. Aborting startup."))
+                       )
+                } yield ()
+      initial  = zio.Duration.fromMillis(2000)
+      maxDelay = zio.Duration.fromMillis(10000)
+      schedule = Schedule
+                   .exponential(initial, 2.0)
+                   .modifyDelay((_, d) => if (d > maxDelay) maxDelay else d)
+                   .&&(Schedule.recurs(3))
+      _ <- attempt.retry(schedule).catchAll { err =>
+             ZIO.logError(err.getMessage) *> ZIO.fail(err)
+           }
+      _ <- ZIO.logInfo("All systems operational")
     } yield ()
 
   private def logHealthResults(results: List[HealthStatus]): ZIO[Any, Throwable, Unit] =
@@ -74,9 +122,14 @@ object Main extends ZIOAppDefault {
       }
       .unit
 
-  private def startGateway: ZIO[Gateway & IngestPort & HealthCheckPort & RuntimeConfig, Throwable, Unit] =
+  private def startGateway: ZIO[Gateway & IngestPort & HealthCheckPort & RuntimeConfig & AllPorts, Throwable, Unit] =
     for {
       gateway <- ZIO.service[Gateway]
-      _       <- gateway.start
+      _       <- gateway match {
+             case restGateway: com.cyrelis.linguapipe.infrastructure.adapters.driving.gateway.rest.IngestRestGateway =>
+               restGateway.startWithDeps
+             case _ =>
+               gateway.start
+           }
     } yield ()
 }

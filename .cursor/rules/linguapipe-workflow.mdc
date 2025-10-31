@@ -17,6 +17,14 @@ description: Development workflow and tooling guidelines
 - ✅ Update configuration when adding new adapters
 - ✅ Write tests for new features
 
+### Asynchronous Ingestion Pattern (Queue Port + Worker)
+
+- The API persists the job via the Job Repository Port, then enqueues the job ID via the Job Queue Port.
+- A background Worker consumes from the Job Queue Port and orchestrates processing through the Blob Store Port, Transcriber Port, Embedder Port, Database Port, and Vector Store Port.
+- If enqueue fails, the API request fails (client can retry). No inline cleanup is performed.
+- Operational jobs :
+  - Daily cleanup: delete orphan blobs and remove stale jobs older than 24h via the relevant ports.
+
 ### DON'T
 
 - ❌ NEVER write markdown files to explain what you did

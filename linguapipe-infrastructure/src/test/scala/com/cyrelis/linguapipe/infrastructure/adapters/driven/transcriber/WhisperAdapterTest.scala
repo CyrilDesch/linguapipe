@@ -3,10 +3,10 @@ package com.cyrelis.linguapipe.infrastructure.adapters.driven.transcriber
 import com.cyrelis.linguapipe.application.errors.PipelineError
 import com.cyrelis.linguapipe.application.types.HealthStatus
 import com.cyrelis.linguapipe.infrastructure.config.TranscriberAdapterConfig
+import io.circe.syntax.*
 import sttp.client4.*
 import sttp.model.{Method, RequestMetadata, StatusCode}
 import zio.*
-import zio.json.*
 import zio.test.*
 import zio.test.Assertion.*
 
@@ -28,7 +28,7 @@ object WhisperAdapterTest extends ZIOSpecDefault {
     ): Task[Response[String]] =
       stubbedResponse.map { whisperResponse =>
         Response(
-          body = whisperResponse.toJson,
+          body = whisperResponse.asJson.noSpaces,
           code = StatusCode.Ok,
           requestMetadata = RequestMetadata(Method.POST, uri"http://localhost:8000/asr", Nil)
         )
@@ -110,7 +110,8 @@ object WhisperAdapterTest extends ZIOSpecDefault {
     suite("transcription scenarios")(
       test("should successfully transcribe audio and return transcript") {
         val mockResponse = WhisperResponse(
-          text = "Bonjour, ceci est un test de transcription."
+          text = "Bonjour, ceci est un test de transcription.",
+          language = None
         )
         val adapter = new WhisperAdapterTestDouble(testConfig, ZIO.succeed(mockResponse))
 
@@ -120,13 +121,14 @@ object WhisperAdapterTest extends ZIOSpecDefault {
           transcript <- adapter.transcribe(audioBytes, "wav")
         } yield assertTrue(
           transcript.text == "Bonjour, ceci est un test de transcription." &&
-            transcript.metadata.attributes("provider") == "whisper" &&
-            transcript.metadata.attributes("model") == "whisper-1"
+            transcript.metadata("provider") == "whisper" &&
+            transcript.metadata("model") == "whisper-1"
         )
       },
       test("should include correct metadata in transcript") {
         val mockResponse = WhisperResponse(
-          text = "Test transcript"
+          text = "Test transcript",
+          language = None
         )
         val adapter = new WhisperAdapterTestDouble(testConfig, ZIO.succeed(mockResponse))
 
@@ -135,10 +137,8 @@ object WhisperAdapterTest extends ZIOSpecDefault {
         for {
           transcript <- adapter.transcribe(audioBytes, "mp3")
         } yield assertTrue(
-          transcript.metadata.attributes.contains("provider") &&
-            transcript.metadata.attributes.contains("model") &&
-            transcript.metadata.attributes.contains("api_url") &&
-            transcript.metadata.attributes("api_url") == "http://localhost:8000"
+          transcript.metadata.contains("provider") &&
+            transcript.metadata.contains("model")
         )
       },
       test("should propagate transcription errors") {
@@ -156,7 +156,8 @@ object WhisperAdapterTest extends ZIOSpecDefault {
       },
       test("should handle different audio formats") {
         val mockResponse = WhisperResponse(
-          text = "Format test"
+          text = "Format test",
+          language = None
         )
         val adapter = new WhisperAdapterTestDouble(testConfig, ZIO.succeed(mockResponse))
 

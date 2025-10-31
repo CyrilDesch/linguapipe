@@ -3,20 +3,21 @@ import sbt.Keys.*
 
 object Dependencies {
   object Versions {
-    val auth0      = "4.5.0"
-    val chimney    = "1.6.0"
-    val flywaydb   = "11.8.1"
-    val logback    = "1.5.18"
-    val mUnit      = "1.0.2"
-    val postgresql = "42.7.5"
-    val quill      = "4.8.6"
-    val slf4j      = "2.0.17"
-    val sttp       = "4.0.12"
-    val tapir      = "1.11.24"
-    val zio        = "2.1.17"
-    val zioConfig  = "4.0.2"
-    val zioLogging = "2.2.4"
-    val zioPrelude = "1.0.0-RC36"
+    val auth0       = "4.5.0"
+    val circe       = "0.14.14"
+    val flywaydb    = "11.8.1"
+    val langchain4j = "0.29.0"
+    val logback     = "1.5.18"
+    val mUnit       = "1.0.2"
+    val postgresql  = "42.7.5"
+    val quill       = "4.8.6"
+    val slf4j       = "2.0.17"
+    val sttp        = "4.0.12"
+    val tapir       = "1.11.24"
+    val zio         = "2.1.17"
+    val zioConfig   = "4.0.2"
+    val zioLogging  = "2.2.4"
+    val zioPrelude  = "1.0.0-RC36"
   }
 
   private val zioCoreDependencies = Seq(
@@ -46,8 +47,16 @@ object Dependencies {
     "io.getquill" %% "quill-jdbc-zio" % Versions.quill
   )
 
+  private val redisDependencies = Seq(
+    "redis.clients" % "jedis" % "5.1.3"
+  )
+
   private val jwtDependencies = Seq(
     "com.auth0" % "java-jwt" % Versions.auth0
+  )
+
+  private val langchain4jDependencies = Seq(
+    "dev.langchain4j" % "langchain4j" % Versions.langchain4j
   )
 
   val testingLibraryDependencies =
@@ -61,8 +70,7 @@ object Dependencies {
   val domainLibraryDependencies: Setting[Seq[ModuleID]] =
     libraryDependencies ++= Seq(
       "dev.zio" %% "zio-prelude"          % Versions.zioPrelude,
-      "dev.zio" %% "zio-prelude-magnolia" % Versions.zioPrelude,
-      "dev.zio" %% "zio-json"             % "0.7.40"
+      "dev.zio" %% "zio-prelude-magnolia" % Versions.zioPrelude
     )
 
   val applicationLibraryDependencies: Setting[Seq[ModuleID]] =
@@ -75,14 +83,17 @@ object Dependencies {
         loggingDependencies ++
         jwtDependencies ++
         databaseDependencies ++
-        quillDependencies ++ Seq(
-          "io.scalaland"                  %% "chimney"                  % Versions.chimney,
+        quillDependencies ++
+        redisDependencies ++
+        langchain4jDependencies ++ Seq(
           "com.softwaremill.sttp.client4" %% "core"                     % Versions.sttp,
           "com.softwaremill.sttp.client4" %% "zio"                      % Versions.sttp,
-          "com.softwaremill.sttp.client4" %% "zio-json"                 % Versions.sttp,
+          "io.circe"                      %% "circe-core"               % Versions.circe,
+          "io.circe"                      %% "circe-generic"            % Versions.circe,
+          "io.circe"                      %% "circe-parser"             % Versions.circe,
           "com.softwaremill.sttp.tapir"   %% "tapir-zio"                % Versions.tapir,
           "com.softwaremill.sttp.tapir"   %% "tapir-iron"               % Versions.tapir,
-          "com.softwaremill.sttp.tapir"   %% "tapir-json-zio"           % Versions.tapir,
+          "com.softwaremill.sttp.tapir"   %% "tapir-json-circe"         % Versions.tapir,
           "com.softwaremill.sttp.tapir"   %% "tapir-zio-http-server"    % Versions.tapir,
           "com.softwaremill.sttp.tapir"   %% "tapir-prometheus-metrics" % Versions.tapir,
           "com.softwaremill.sttp.tapir"   %% "tapir-swagger-ui-bundle"  % Versions.tapir,

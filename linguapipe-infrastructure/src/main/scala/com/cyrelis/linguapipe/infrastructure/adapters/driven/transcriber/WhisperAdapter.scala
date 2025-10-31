@@ -6,24 +6,26 @@ import java.util.UUID
 
 import scala.concurrent.duration.*
 
-import com.cyrelis.linguapipe.application.ports.driven.TranscriberPort
+import com.cyrelis.linguapipe.application.ports.driven.transcription.TranscriberPort
 import com.cyrelis.linguapipe.application.types.HealthStatus
-import com.cyrelis.linguapipe.domain.{IngestSource, Transcript, TranscriptMetadata}
+import com.cyrelis.linguapipe.domain.transcript.{IngestSource, LanguageCode, Transcript}
 import com.cyrelis.linguapipe.infrastructure.config.TranscriberAdapterConfig
 import com.cyrelis.linguapipe.infrastructure.resilience.ErrorMapper
+import io.circe.Codec
+import io.circe.generic.semiauto.*
+import io.circe.parser.*
 import sttp.client4.*
 import sttp.client4.httpclient.zio.HttpClientZioBackend
 import sttp.model.MediaType
 import zio.*
-import zio.json.*
 
 final case class WhisperResponse(
-  text: String
+  text: String,
+  language: Option[String]
 )
 
 object WhisperResponse {
-  given JsonDecoder[WhisperResponse] = DeriveJsonDecoder.gen[WhisperResponse]
-  given JsonEncoder[WhisperResponse] = DeriveJsonEncoder.gen[WhisperResponse]
+  given Codec[WhisperResponse] = deriveCodec
 }
 
 class WhisperAdapter(config: TranscriberAdapterConfig.Whisper) extends TranscriberPort {
@@ -48,15 +50,14 @@ class WhisperAdapter(config: TranscriberAdapterConfig.Whisper) extends Transcrib
         transcript      <- ZIO.succeed(
                         Transcript(
                           id = transcriptId,
+                          language = whisperResponse.language.map(LanguageCode.unsafe),
                           text = whisperResponse.text,
+                          confidence = 0.8,
                           createdAt = now,
-                          metadata = TranscriptMetadata(
-                            source = IngestSource.Audio,
-                            attributes = Map(
-                              "provider" -> "whisper",
-                              "model"    -> config.modelPath,
-                              "api_url"  -> config.apiUrl
-                            )
+                          source = IngestSource.Audio,
+                          metadata = Map(
+                            "provider" -> "whisper",
+                            "model"    -> config.modelPath
                           )
                         )
                       )
@@ -99,14 +100,11 @@ class WhisperAdapter(config: TranscriberAdapterConfig.Whisper) extends Transcrib
     format: String
   ): Task[WhisperResponse] =
     if (response.code.isSuccess) {
-      response.body.fromJson[WhisperResponse] match {
-        case Right(whisperResponse) =>
-          ZIO.succeed(whisperResponse)
-        case Left(error) =>
+      decode[WhisperResponse](response.body) match {
+        case Right(whisperResponse) => ZIO.succeed(whisperResponse)
+        case Left(error)            =>
           ZIO.fail(
-            new RuntimeException(
-              s"Invalid JSON from Whisper API (status ${response.code.code}): $error"
-            )
+            new RuntimeException(s"Invalid JSON from Whisper API (status ${response.code.code}): ${error.getMessage}")
           )
       }
     } else {
@@ -119,8 +117,7 @@ class WhisperAdapter(config: TranscriberAdapterConfig.Whisper) extends Transcrib
 
   private def baseDetails: Map[String, String] = Map(
     "provider" -> "whisper",
-    "model"    -> config.modelPath,
-    "api_url"  -> config.apiUrl
+    "model"    -> config.modelPath
   )
 
   override def healthCheck(): Task[HealthStatus] = {

@@ -14,19 +14,22 @@ LinguaPipe is designed with **Hexagonal Architecture** principles, making it eas
 - Expose APIs via gRPC
 - Switch adapters through config files without changing code
 - Built with hexagonal architecture for clean testing and extension
+- Persistent job queue with Redis
 
 ## Roadmap
 
 - [x] Implement REST Gateway
 - [x] Implement a Transcriber Adapter
 - [x] Allow audio ingestion
-- [ ] Implement a Database Adapter
-- [ ] Implement an Embedder Adapter
+- [x] Implement a Database Adapter
+- [x] Implement an Embedder Adapter
 - [ ] Implement a Vector Store Adapter
 - [ ] Implement a Blob Store Adapter
+- [x] Implement a Job Queue Adapter
 - [ ] Allow text and PDF ingestion
 - [ ] Implement gRPC Gateway
 - [x] Implement Retry and Timeout Services
+- [ ] Add daily cleanup job: delete orphan blobs and stale DB jobs (>24h)
 
 ## 📋 Prerequisites
 
@@ -57,8 +60,9 @@ This starts the following Docker containers:
 - **PostgreSQL** (database) on `localhost:5432`
 - **Qdrant** (vector store) on `localhost:6333`
 - **Whisper** (transcription with faster-whisper) on `localhost:9001`
-- **Text Embeddings Inference** (HuggingFace embeddings) on `localhost:8080`
+- **Text Embeddings Inference** (HuggingFace embeddings) on `localhost:8082`
 - **MinIO** (S3-compatible storage) on `localhost:9000`
+- **Redis** (persistent job queue) on `localhost:6379`
 
 All services are ready to use with **no configuration needed**. The default `application.conf` is pre-configured to use these services.
 
@@ -107,6 +111,14 @@ LinguaPipe follows **Hexagonal Architecture** (Ports & Adapters) with three dist
 
 **Concrete implementations** of all adapters and runtime concerns.
 
+### Asynchronous Ingestion Pattern (Queue Port + Worker)
+
+- The API persists the job via the Job Repository Port, then enqueues the job ID via the Job Queue Port.
+- A background Worker consumes from the Job Queue Port and orchestrates processing through the Blob Store Port, Transcriber Port, Embedder Port, Database Port, and Vector Store Port.
+- If enqueue fails, the API request fails (client can retry). No inline cleanup is performed.
+- Operational jobs :
+  - Daily cleanup: delete orphan blobs and remove stale jobs older than 24h via the relevant ports.
+
 ## ⚙️ Configuration
 
 LinguaPipe uses **declarative configuration** through `application.conf`. Change adapters without modifying code!
@@ -136,6 +148,7 @@ linguapipe.adapters.driven.database {
 | **Transcriber**  | Whisper        | Whisper          |
 | **Embedder**     | HuggingFace    | HuggingFace      |
 | **Blob Store**   | MinIO          | MinIO            |
+| **Job Queue**    | Redis          | Redis            |
 | **API Gateway**  | gRPC           | gRPC             |
 
 ## Environment Variables
@@ -149,8 +162,11 @@ export DB_PASSWORD=secret123
 # Optional: Override service URLs
 export QDRANT_URL=http://your-qdrant:6333
 export WHISPER_URL=http://your-whisper:9001
-export HUGGINGFACE_URL=http://your-embeddings:8080
+export HUGGINGFACE_URL=http://your-embeddings:8082
 export MINIO_ENDPOINT=http://your-minio:9000
+export REDIS_HOST=your-redis-host
+export REDIS_PORT=6379
+export REDIS_PASSWORD=secret
 
 sbt "linguapipe-infrastructure/run"
 ```
