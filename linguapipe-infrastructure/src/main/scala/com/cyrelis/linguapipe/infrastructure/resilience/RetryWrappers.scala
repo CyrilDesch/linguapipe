@@ -12,6 +12,7 @@ import com.cyrelis.linguapipe.domain.ingestionjob.{IngestionJob, IngestionJobRep
 import com.cyrelis.linguapipe.domain.transcript.{Transcript, TranscriptRepository}
 import com.cyrelis.linguapipe.infrastructure.config.{RetryConfig, TimeoutConfig}
 import zio.*
+import zio.stream.ZStream
 
 object RetryWrappers {
 
@@ -20,10 +21,14 @@ object RetryWrappers {
     retryConfig: RetryConfig,
     timeoutConfig: TimeoutConfig
   ): TranscriberPort = new TranscriberPort {
-    override def transcribe(audioContent: Array[Byte], format: String): ZIO[Any, PipelineError, Transcript] =
+    override def transcribe(
+      audioContent: Array[Byte],
+      mediaContentType: String,
+      mediaFilename: String
+    ): ZIO[Any, PipelineError, Transcript] =
       RetryService.applyRetry(
         TimeoutService.applyTranscriptionTimeout(
-          underlying.transcribe(audioContent, format),
+          underlying.transcribe(audioContent, mediaContentType, mediaFilename),
           timeoutConfig
         ),
         retryConfig
@@ -103,9 +108,14 @@ object RetryWrappers {
     retryConfig: RetryConfig,
     timeoutConfig: TimeoutConfig
   ): BlobStorePort = new BlobStorePort {
-    override def storeAudio(jobId: UUID, audioContent: Array[Byte], format: String): ZIO[Any, PipelineError, String] = {
+    override def storeAudio(
+      jobId: UUID,
+      audioContent: Array[Byte],
+      mediaContentType: String,
+      mediaFilename: String
+    ): ZIO[Any, PipelineError, String] = {
       val withTimeout = TimeoutService.applyBlobStoreTimeout(
-        underlying.storeAudio(jobId, audioContent, format),
+        underlying.storeAudio(jobId, audioContent, mediaContentType, mediaFilename),
         timeoutConfig
       )
       RetryService.applyRetry(withTimeout, retryConfig)
@@ -114,6 +124,29 @@ object RetryWrappers {
     override def fetchAudio(blobKey: String): ZIO[Any, PipelineError, Array[Byte]] = {
       val withTimeout = TimeoutService.applyBlobStoreTimeout(
         underlying.fetchAudio(blobKey),
+        timeoutConfig
+      )
+      RetryService.applyRetry(withTimeout, retryConfig)
+    }
+
+    override def fetchBlobAsStream(blobKey: String): ZStream[Any, PipelineError, Byte] =
+      underlying
+        .fetchBlobAsStream(blobKey)
+        .timeoutFail(
+          PipelineError.BlobStoreError("Stream timeout", None)
+        )(timeoutConfig.blobStoreMs.millis)
+
+    override def getBlobFilename(blobKey: String): ZIO[Any, PipelineError, Option[String]] = {
+      val withTimeout = TimeoutService.applyBlobStoreTimeout(
+        underlying.getBlobFilename(blobKey),
+        timeoutConfig
+      )
+      RetryService.applyRetry(withTimeout, retryConfig)
+    }
+
+    override def getBlobContentType(blobKey: String): ZIO[Any, PipelineError, Option[String]] = {
+      val withTimeout = TimeoutService.applyBlobStoreTimeout(
+        underlying.getBlobContentType(blobKey),
         timeoutConfig
       )
       RetryService.applyRetry(withTimeout, retryConfig)

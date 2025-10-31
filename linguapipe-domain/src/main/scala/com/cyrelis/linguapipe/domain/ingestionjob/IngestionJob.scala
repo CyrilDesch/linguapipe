@@ -18,7 +18,7 @@ final case class IngestionJob(
   id: UUID,
   transcriptId: Option[UUID],
   source: IngestSource,
-  mediaFormat: Option[String],
+  mediaContentType: Option[String],
   mediaFilename: Option[String],
   status: JobStatus,
   attempt: Int,
@@ -62,7 +62,7 @@ final case class IngestionJob(
 object IngestionJob:
   def newAudioJob(
     source: IngestSource,
-    mediaFormat: Option[String],
+    mediaContentType: Option[String],
     mediaFilename: Option[String],
     blobKey: Option[String],
     metadata: Map[String, String],
@@ -75,7 +75,7 @@ object IngestionJob:
       id = jobId,
       transcriptId = None,
       source = source,
-      mediaFormat = mediaFormat,
+      mediaContentType = mediaContentType,
       mediaFilename = mediaFilename,
       status = JobStatus.Pending,
       attempt = 0,

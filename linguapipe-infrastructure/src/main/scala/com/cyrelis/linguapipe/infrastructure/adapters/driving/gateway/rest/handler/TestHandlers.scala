@@ -1,7 +1,7 @@
 package com.cyrelis.linguapipe.infrastructure.adapters.driving.gateway.rest.handler
 
 import java.nio.file.Files
-import java.util.{Base64, UUID}
+import java.util.UUID
 
 import com.cyrelis.linguapipe.application.errors.PipelineError
 import com.cyrelis.linguapipe.application.ports.driven.embedding.EmbedderPort
@@ -9,7 +9,6 @@ import com.cyrelis.linguapipe.application.ports.driven.parser.DocumentParserPort
 import com.cyrelis.linguapipe.application.ports.driven.storage.{BlobStorePort, VectorStorePort}
 import com.cyrelis.linguapipe.application.ports.driven.transcription.TranscriberPort
 import com.cyrelis.linguapipe.domain.transcript.{IngestSource, Transcript, TranscriptRepository}
-import com.cyrelis.linguapipe.infrastructure.adapters.driving.gateway.rest.RestUtils
 import com.cyrelis.linguapipe.infrastructure.adapters.driving.gateway.rest.dto.common.IngestSourceDto
 import com.cyrelis.linguapipe.infrastructure.adapters.driving.gateway.rest.dto.test.*
 import com.cyrelis.linguapipe.infrastructure.adapters.driving.gateway.rest.error.ErrorHandler
@@ -19,9 +18,14 @@ object TestHandlers {
 
   def handleTranscriber(req: TestTranscriberRestDto): ZIO[TranscriberPort, String, TestTranscriberResultRestDto] =
     (for {
-      format     <- ZIO.succeed(RestUtils.extractFormat(req.file))
+      contentType <- ZIO
+                       .fromOption(req.file.contentType.map(_.toString))
+                       .orElseFail(PipelineError.ConfigurationError("Missing Content-Type header in multipart request"))
+      fileName <- ZIO
+                    .fromOption(req.file.fileName)
+                    .orElseFail(PipelineError.ConfigurationError("Missing filename in multipart request"))
       audioBytes <- ZIO.attempt(Files.readAllBytes(req.file.body.toPath))
-      transcript <- ZIO.serviceWithZIO[TranscriberPort](_.transcribe(audioBytes, format))
+      transcript <- ZIO.serviceWithZIO[TranscriberPort](_.transcribe(audioBytes, contentType, fileName))
       result     <- ZIO.succeed(
                   TestTranscriberResultRestDto(
                     result = transcript.text
@@ -58,9 +62,15 @@ object TestHandlers {
 
   def handleBlobStore(req: TestBlobStoreRestDto): ZIO[BlobStorePort, String, TestResultRestDto] =
     (for {
-      audioBytes <- ZIO.attempt(Base64.getDecoder.decode(req.content): Array[Byte])
+      contentType <- ZIO
+                       .fromOption(req.file.contentType.map(_.toString))
+                       .orElseFail(PipelineError.ConfigurationError("Missing Content-Type header in multipart request"))
+      fileName <- ZIO
+                    .fromOption(req.file.fileName)
+                    .orElseFail(PipelineError.ConfigurationError("Missing filename in multipart request"))
+      audioBytes <- ZIO.attempt(Files.readAllBytes(req.file.body.toPath))
       jobId      <- ZIO.succeed(UUID.randomUUID())
-      key        <- ZIO.serviceWithZIO[BlobStorePort](_.storeAudio(jobId, audioBytes, "wav"))
+      key        <- ZIO.serviceWithZIO[BlobStorePort](_.storeAudio(jobId, audioBytes, contentType, fileName))
       result     <- ZIO.succeed(
                   TestResultRestDto(
                     result = s"Stored under key $key"

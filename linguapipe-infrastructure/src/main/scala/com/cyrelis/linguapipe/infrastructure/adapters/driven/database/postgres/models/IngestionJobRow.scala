@@ -13,13 +13,13 @@ final case class IngestionJobRow(
   id: UUID,
   transcriptId: Option[UUID],
   source: String,
-  mediaFormat: Option[String],
-  mediaFilename: Option[String],
+  mediaContentType: Option[String], // Optional only for text ingestion
+  mediaFilename: Option[String],    // Optional only for text ingestion
   status: String,
   attempt: Int,
   maxAttempts: Int,
   errorMessage: Option[String],
-  blobKey: Option[String],
+  blobKey: Option[String], // Optional only for text ingestion
   metadata: JsonbValue[String],
   createdAt: Timestamp,
   updatedAt: Timestamp
@@ -31,7 +31,7 @@ object IngestionJobRow {
       id = job.id,
       transcriptId = job.transcriptId,
       source = sourceToString(job.source),
-      mediaFormat = job.mediaFormat,
+      mediaContentType = job.mediaContentType,
       mediaFilename = job.mediaFilename,
       status = job.status.toString,
       attempt = job.attempt,
@@ -49,7 +49,7 @@ object IngestionJobRow {
       id = row.id,
       transcriptId = row.transcriptId,
       source = stringToSource(row.source),
-      mediaFormat = row.mediaFormat,
+      mediaContentType = row.mediaContentType,
       mediaFilename = row.mediaFilename,
       status = JobStatus.valueOf(row.status),
       attempt = row.attempt,

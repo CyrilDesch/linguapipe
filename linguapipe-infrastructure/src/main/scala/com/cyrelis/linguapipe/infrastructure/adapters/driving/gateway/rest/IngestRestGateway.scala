@@ -35,13 +35,14 @@ final class IngestRestGateway(
     } yield docsRoutes ++ mainRoutes ++ testRoutes
 
   private def buildMainRoutes: ZIO[
-    IngestPort & HealthCheckPort & TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]],
+    IngestPort & HealthCheckPort & BlobStorePort & TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]],
     Nothing,
     Routes[Any, Response]
   ] =
     for {
       ingestPort      <- ZIO.service[IngestPort]
       healthCheckPort <- ZIO.service[HealthCheckPort]
+      blobStore       <- ZIO.service[BlobStorePort]
       transcriptRepo  <- ZIO.service[TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]]]
     } yield ZioHttpInterpreter().toHttp(
       List(
@@ -73,7 +74,10 @@ final class IngestRestGateway(
           MainHandlers
             .handleGetTranscripts(filters, sortBy, metadataSort, order)
             .provide(ZLayer.succeed(transcriptRepo))
-        }
+        },
+        MainEndpoints.getFile.zServerLogic(
+          MainHandlers.handleGetFile(_).provide(ZLayer.succeed(blobStore))
+        )
       )
     )
 

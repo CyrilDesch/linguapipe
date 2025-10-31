@@ -79,7 +79,7 @@ enum EmbedderAdapterConfig:
   case HuggingFace(model: String, apiUrl: String)
 
 enum BlobStoreAdapterConfig:
-  case MinIO(endpoint: String, accessKey: String, secretKey: String, bucket: String)
+  case MinIO(host: String, port: Int, accessKey: String, secretKey: String, bucket: String)
 
 enum JobQueueAdapterConfig:
   case Redis(

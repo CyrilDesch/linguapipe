@@ -1,10 +1,7 @@
 package com.cyrelis.linguapipe.infrastructure.adapters.driving.gateway.rest.dto.test
 
-import io.circe.Codec
-import io.circe.generic.semiauto.deriveCodec
+import java.io.File
 
-final case class TestBlobStoreRestDto(content: String)
+import sttp.model.Part
 
-object TestBlobStoreRestDto {
-  given Codec[TestBlobStoreRestDto] = deriveCodec
-}
+final case class TestBlobStoreRestDto(file: Part[File])

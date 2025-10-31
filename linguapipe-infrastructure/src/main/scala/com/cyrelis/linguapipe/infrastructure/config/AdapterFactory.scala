@@ -75,7 +75,7 @@ object AdapterFactory {
   def createBlobStoreAdapter(config: BlobStoreAdapterConfig): BlobStorePort =
     config match {
       case cfg: BlobStoreAdapterConfig.MinIO =>
-        new MinioAdapter(cfg.endpoint, cfg.accessKey, cfg.secretKey, cfg.bucket)
+        new MinioAdapter(cfg.host, cfg.port, cfg.accessKey, cfg.secretKey, cfg.bucket)
     }
 
   def createDocumentParserAdapter(): DocumentParserPort =

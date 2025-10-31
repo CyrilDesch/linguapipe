@@ -237,7 +237,8 @@ object ConfigLoader {
       case "minio" =>
         val minioConfig = config.getConfig("minio")
         BlobStoreAdapterConfig.MinIO(
-          endpoint = minioConfig.getString("endpoint"),
+          host = minioConfig.getString("host"),
+          port = minioConfig.getInt("port"),
           accessKey = minioConfig.getString("access-key"),
           secretKey = minioConfig.getString("secret-key"),
           bucket = minioConfig.getString("bucket")

@@ -24,12 +24,13 @@ LinguaPipe is designed with **Hexagonal Architecture** principles, making it eas
 - [x] Implement a Database Adapter
 - [x] Implement an Embedder Adapter
 - [ ] Implement a Vector Store Adapter
-- [ ] Implement a Blob Store Adapter
+- [x] Implement a Blob Store Adapter
 - [x] Implement a Job Queue Adapter
 - [ ] Allow text and PDF ingestion
 - [ ] Implement gRPC Gateway
 - [x] Implement Retry and Timeout Services
 - [ ] Add daily cleanup job: delete orphan blobs and stale DB jobs (>24h)
+- [ ] Migrations should use a datasource instead of hardcoded
 
 ## 📋 Prerequisites
 

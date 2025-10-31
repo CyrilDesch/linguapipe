@@ -5,7 +5,6 @@ import java.time.Instant
 import scala.math.pow
 
 import com.cyrelis.linguapipe.application.errors.PipelineError
-import com.cyrelis.linguapipe.application.errors.PipelineError.ConfigurationError
 import com.cyrelis.linguapipe.application.ports.driven.embedding.EmbedderPort
 import com.cyrelis.linguapipe.application.ports.driven.job.JobQueuePort
 import com.cyrelis.linguapipe.application.ports.driven.storage.{BlobStorePort, VectorStorePort}
@@ -56,13 +55,18 @@ final class DefaultIngestionJobWorker(
       jobState1 <- jobRepository.update(claimedJob)
       blobKey   <- ZIO
                    .fromOption(jobState1.blobKey)
-                   .orElseFail(ConfigurationError(s"Missing blob key for job ${jobState1.id}"))
-      format <- ZIO
-                  .fromOption(jobState1.mediaFormat)
-                  .orElseFail(ConfigurationError(s"Missing media format for job ${jobState1.id}"))
+                   .orElseFail(PipelineError.DatabaseError(s"Missing blob key for job ${jobState1.id}", None))
+      contentType <-
+        ZIO
+          .fromOption(jobState1.mediaContentType)
+          .orElseFail(PipelineError.DatabaseError(s"Missing media content type for job ${jobState1.id}", None))
+      mediaFilename <-
+        ZIO
+          .fromOption(jobState1.mediaFilename)
+          .orElseFail(PipelineError.DatabaseError(s"Missing media filename for job ${jobState1.id}", None))
       audio           <- blobStore.fetchAudio(blobKey)
       temp_transcript <- transcriber
-                           .transcribe(audio, format)
+                           .transcribe(audio, contentType, mediaFilename)
       transcript  = temp_transcript.addMetadatas(jobState1.metadata)
       _          <- transcriptRepository.persist(transcript)
       jobWithTid <- jobRepository.update(
@@ -146,7 +150,7 @@ final class DefaultIngestionJobWorker(
                     id = jobId,
                     transcriptId = None,
                     source = IngestSource.Audio,
-                    mediaFormat = None,
+                    mediaContentType = None,
                     mediaFilename = None,
                     status = JobStatus.Failed,
                     attempt = 0,

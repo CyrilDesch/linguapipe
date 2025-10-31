@@ -8,6 +8,7 @@ object Dependencies {
     val flywaydb    = "11.8.1"
     val langchain4j = "0.29.0"
     val logback     = "1.5.18"
+    val minio       = "8.5.10"
     val mUnit       = "1.0.2"
     val postgresql  = "42.7.5"
     val quill       = "4.8.6"
@@ -51,6 +52,10 @@ object Dependencies {
     "redis.clients" % "jedis" % "5.1.3"
   )
 
+  private val minioDependencies = Seq(
+    "io.minio" % "minio" % Versions.minio
+  )
+
   private val jwtDependencies = Seq(
     "com.auth0" % "java-jwt" % Versions.auth0
   )
@@ -85,6 +90,7 @@ object Dependencies {
         databaseDependencies ++
         quillDependencies ++
         redisDependencies ++
+        minioDependencies ++
         langchain4jDependencies ++ Seq(
           "com.softwaremill.sttp.client4" %% "core"                     % Versions.sttp,
           "com.softwaremill.sttp.client4" %% "zio"                      % Versions.sttp,

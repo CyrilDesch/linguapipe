@@ -21,19 +21,19 @@ final class DefaultIngestService(
 
   override def submitAudio(
     audioContent: Array[Byte],
-    format: String,
+    mediaContentType: String,
     mediaFilename: String,
     metadata: Map[String, String]
   ): ZIO[Any, PipelineError, IngestionJob] =
     for {
       now     <- Clock.instant
       jobId    = UUID.randomUUID()
-      blobKey <- blobStore.storeAudio(jobId, audioContent, format)
+      blobKey <- blobStore.storeAudio(jobId, audioContent, mediaContentType, mediaFilename)
       job      = IngestionJob(
               id = jobId,
               transcriptId = None,
               source = IngestSource.Audio,
-              mediaFormat = Some(format),
+              mediaContentType = Some(mediaContentType),
               mediaFilename = Some(mediaFilename),
               status = JobStatus.Pending,
               attempt = 0,

@@ -9,7 +9,7 @@ import zio.*
 trait IngestPort {
   def submitAudio(
     audioContent: Array[Byte],
-    format: String,
+    mediaContentType: String,
     mediaFilename: String,
     metadata: Map[String, String]
   ): ZIO[Any, PipelineError, IngestionJob]

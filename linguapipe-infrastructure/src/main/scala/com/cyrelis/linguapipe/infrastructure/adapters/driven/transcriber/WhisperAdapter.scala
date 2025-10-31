@@ -38,15 +38,16 @@ class WhisperAdapter(config: TranscriberAdapterConfig.Whisper) extends Transcrib
 
   override def transcribe(
     audioContent: Array[Byte],
-    format: String
+    mediaContentType: String,
+    mediaFilename: String
   ): ZIO[Any, com.cyrelis.linguapipe.application.errors.PipelineError, Transcript] = {
     val transcriptId = UUID.randomUUID()
     val now          = Instant.now()
 
     ErrorMapper.mapTranscriptionError {
       for {
-        response        <- makeWhisperRequest(audioContent, format)
-        whisperResponse <- parseWhisperResponse(response, audioContent.length, format)
+        response        <- makeWhisperRequest(audioContent, mediaContentType, mediaFilename)
+        whisperResponse <- parseWhisperResponse(response, audioContent.length, mediaContentType)
         transcript      <- ZIO.succeed(
                         Transcript(
                           id = transcriptId,
@@ -67,7 +68,8 @@ class WhisperAdapter(config: TranscriberAdapterConfig.Whisper) extends Transcrib
 
   protected def makeWhisperRequest(
     audioBytes: Array[Byte],
-    format: String
+    mediaContentType: String,
+    mediaFilename: String
   ): Task[Response[String]] = {
     val url = uri"${config.apiUrl}/asr".addParams(
       "encode"          -> "true",
@@ -77,12 +79,14 @@ class WhisperAdapter(config: TranscriberAdapterConfig.Whisper) extends Transcrib
       "output"          -> "json"
     )
 
+    val mediaType = MediaType.parse(mediaContentType).getOrElse(MediaType.ApplicationOctetStream)
+
     val request = basicRequest
       .post(url)
       .multipartBody(
         multipart("audio_file", audioBytes)
-          .fileName(s"audio.${format.stripPrefix("x-")}")
-          .contentType(MediaType.ApplicationOctetStream)
+          .fileName(mediaFilename)
+          .contentType(mediaType)
       )
       .response(asStringAlways)
 
@@ -97,7 +101,7 @@ class WhisperAdapter(config: TranscriberAdapterConfig.Whisper) extends Transcrib
   private def parseWhisperResponse(
     response: Response[String],
     audioSize: Int,
-    format: String
+    mediaContentType: String
   ): Task[WhisperResponse] =
     if (response.code.isSuccess) {
       decode[WhisperResponse](response.body) match {
@@ -110,7 +114,7 @@ class WhisperAdapter(config: TranscriberAdapterConfig.Whisper) extends Transcrib
     } else {
       ZIO.fail(
         new RuntimeException(
-          s"Whisper API error (status ${response.code.code}): ${response.body} | Audio: $audioSize bytes, format=$format"
+          s"Whisper API error (status ${response.code.code}): ${response.body} | Audio: $audioSize bytes, mediaContentType=$mediaContentType"
         )
       )
     }

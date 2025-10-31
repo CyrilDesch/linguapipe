@@ -24,7 +24,8 @@ object WhisperAdapterTest extends ZIOSpecDefault {
   ) extends WhisperAdapter(config) {
     override protected def makeWhisperRequest(
       audioBytes: Array[Byte],
-      format: String
+      mediaContentType: String,
+      mediaFilename: String
     ): Task[Response[String]] =
       stubbedResponse.map { whisperResponse =>
         Response(
@@ -95,14 +96,14 @@ object WhisperAdapterTest extends ZIOSpecDefault {
       test("should reject invalid audio content") {
         val invalidContent = "invalid-content".getBytes
         val adapter        = WhisperAdapter(testConfig)
-        val result         = adapter.transcribe(invalidContent, "wav")
+        val result         = adapter.transcribe(invalidContent, "audio/wav", "test.wav")
 
         assertZIO(result.exit)(fails(anything))
       },
       test("should reject empty audio content") {
         val emptyContent = Array.emptyByteArray
         val adapter      = WhisperAdapter(testConfig)
-        val result       = adapter.transcribe(emptyContent, "wav")
+        val result       = adapter.transcribe(emptyContent, "audio/wav", "test.wav")
 
         assertZIO(result.exit)(fails(anything))
       }
@@ -118,7 +119,7 @@ object WhisperAdapterTest extends ZIOSpecDefault {
         val audioBytes = "fake audio data".getBytes
 
         for {
-          transcript <- adapter.transcribe(audioBytes, "wav")
+          transcript <- adapter.transcribe(audioBytes, "audio/wav", "test.wav")
         } yield assertTrue(
           transcript.text == "Bonjour, ceci est un test de transcription." &&
             transcript.metadata("provider") == "whisper" &&
@@ -135,7 +136,7 @@ object WhisperAdapterTest extends ZIOSpecDefault {
         val audioBytes = "test audio".getBytes
 
         for {
-          transcript <- adapter.transcribe(audioBytes, "mp3")
+          transcript <- adapter.transcribe(audioBytes, "audio/mpeg", "test.mp3")
         } yield assertTrue(
           transcript.metadata.contains("provider") &&
             transcript.metadata.contains("model")
@@ -150,25 +151,30 @@ object WhisperAdapterTest extends ZIOSpecDefault {
 
         val audioBytes = "audio data".getBytes
 
-        assertZIO(adapter.transcribe(audioBytes, "wav").exit)(
+        assertZIO(adapter.transcribe(audioBytes, "audio/wav", "test.wav").exit)(
           fails(isSubtype[PipelineError.TranscriptionError](hasField("message", _.message, equalTo(errorMessage))))
         )
       },
-      test("should handle different audio formats") {
+      test("should handle different audio content types") {
         val mockResponse = WhisperResponse(
-          text = "Format test",
+          text = "Content type test",
           language = None
         )
         val adapter = new WhisperAdapterTestDouble(testConfig, ZIO.succeed(mockResponse))
 
-        val audioBytes = "audio".getBytes
-        val formats    = Seq("wav", "mp3", "m4a", "ogg")
+        val audioBytes   = "audio".getBytes
+        val contentTypes = Seq(
+          ("audio/wav", "test.wav"),
+          ("audio/mpeg", "test.mp3"),
+          ("audio/mp4", "test.m4a"),
+          ("audio/ogg", "test.ogg")
+        )
 
         for {
-          transcripts <- ZIO.foreach(formats) { format =>
-                           adapter.transcribe(audioBytes, format)
+          transcripts <- ZIO.foreach(contentTypes) { case (contentType, filename) =>
+                           adapter.transcribe(audioBytes, contentType, filename)
                          }
-        } yield assertTrue(transcripts.forall(_.text == "Format test"))
+        } yield assertTrue(transcripts.forall(_.text == "Content type test"))
       }
     )
   )

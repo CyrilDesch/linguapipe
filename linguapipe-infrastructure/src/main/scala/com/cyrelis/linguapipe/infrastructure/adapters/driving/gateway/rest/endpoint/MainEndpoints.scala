@@ -1,10 +1,14 @@
 package com.cyrelis.linguapipe.infrastructure.adapters.driving.gateway.rest.endpoint
 
+import java.util.UUID
+
 import com.cyrelis.linguapipe.infrastructure.adapters.driving.gateway.rest.dto.main.*
+import sttp.capabilities.zio.ZioStreams
 import sttp.model.StatusCode
 import sttp.tapir.*
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
+import zio.stream.ZStream
 
 object MainEndpoints {
 
@@ -79,6 +83,21 @@ object MainEndpoints {
         """.stripMargin
       )
 
+  val getFile: PublicEndpoint[UUID, String, (String, String, ZStream[Any, Throwable, Byte]), ZioStreams] =
+    sttp.tapir.endpoint.get
+      .in("api" / "v1" / "files" / path[UUID]("blobKey"))
+      .out(header[String]("Content-Disposition"))
+      .out(header[String]("Content-Type"))
+      .out(
+        streamBody(ZioStreams)(
+          Schema.binary[Byte],
+          CodecFormat.OctetStream(),
+          None
+        )
+      )
+      .errorOut(stringBody)
+      .description("Get file by blob key (streaming with Content-Disposition and Content-Type headers)")
+
   def all: List[PublicEndpoint[?, ?, ?, ?]] =
-    List(health, ingestAudioMultipart, ingestText, ingestDocument, jobStatus, transcripts)
+    List(health, ingestAudioMultipart, ingestText, ingestDocument, jobStatus, transcripts, getFile)
 }
