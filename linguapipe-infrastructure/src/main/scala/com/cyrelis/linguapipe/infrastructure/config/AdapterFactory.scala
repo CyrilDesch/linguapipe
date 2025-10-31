@@ -19,7 +19,7 @@ import com.cyrelis.linguapipe.infrastructure.adapters.driven.documentparser.PdfB
 import com.cyrelis.linguapipe.infrastructure.adapters.driven.embedder.HuggingFaceAdapter
 import com.cyrelis.linguapipe.infrastructure.adapters.driven.queue.RedisJobQueueAdapter
 import com.cyrelis.linguapipe.infrastructure.adapters.driven.transcriber.WhisperAdapter
-import com.cyrelis.linguapipe.infrastructure.adapters.driven.vectorstore.VectorStoreSink
+import com.cyrelis.linguapipe.infrastructure.adapters.driven.vectorstore.QdrantAdapter
 import com.cyrelis.linguapipe.infrastructure.adapters.driving.Gateway
 import com.cyrelis.linguapipe.infrastructure.adapters.driving.gateway.rest.IngestRestGateway
 import zio.*
@@ -57,7 +57,7 @@ object AdapterFactory {
   def createVectorStoreAdapter(config: VectorStoreAdapterConfig): VectorStorePort =
     config match {
       case cfg: VectorStoreAdapterConfig.Qdrant =>
-        new VectorStoreSink(s"qdrant://${cfg.url}/${cfg.collection}")
+        new QdrantAdapter(cfg)
     }
 
   def createTranscriberAdapter(config: TranscriberAdapterConfig): TranscriberPort =

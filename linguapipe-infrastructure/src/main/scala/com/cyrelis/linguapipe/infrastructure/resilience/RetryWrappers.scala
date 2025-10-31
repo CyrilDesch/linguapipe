@@ -51,6 +51,14 @@ object RetryWrappers {
       RetryService.applyRetry(withTimeout, retryConfig)
     }
 
+    override def embedQuery(query: String): ZIO[Any, PipelineError, Array[Float]] = {
+      val withTimeout = TimeoutService.applyEmbeddingTimeout(
+        underlying.embedQuery(query),
+        timeoutConfig
+      )
+      RetryService.applyRetry(withTimeout, retryConfig)
+    }
+
     override def healthCheck(): Task[HealthStatus] =
       underlying.healthCheck()
   }
@@ -91,9 +99,25 @@ object RetryWrappers {
     retryConfig: RetryConfig,
     timeoutConfig: TimeoutConfig
   ): VectorStorePort = new VectorStorePort {
-    override def upsertEmbeddings(transcriptId: UUID, vectors: List[Array[Float]]): ZIO[Any, PipelineError, Unit] = {
+    override def upsertEmbeddings(
+      transcriptId: UUID,
+      vectors: List[Array[Float]],
+      metadata: Map[String, String]
+    ): ZIO[Any, PipelineError, Unit] = {
       val withTimeout = TimeoutService.applyVectorStoreTimeout(
-        underlying.upsertEmbeddings(transcriptId, vectors),
+        underlying.upsertEmbeddings(transcriptId, vectors, metadata),
+        timeoutConfig
+      )
+      RetryService.applyRetry(withTimeout, retryConfig)
+    }
+
+    override def searchSimilar(
+      queryVector: Array[Float],
+      limit: Int,
+      filter: Option[com.cyrelis.linguapipe.application.types.VectorStoreFilter]
+    ): ZIO[Any, PipelineError, List[com.cyrelis.linguapipe.application.types.VectorSearchResult]] = {
+      val withTimeout = TimeoutService.applyVectorStoreTimeout(
+        underlying.searchSimilar(queryVector, limit, filter),
         timeoutConfig
       )
       RetryService.applyRetry(withTimeout, retryConfig)

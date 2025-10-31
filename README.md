@@ -23,7 +23,7 @@ LinguaPipe is designed with **Hexagonal Architecture** principles, making it eas
 - [x] Allow audio ingestion
 - [x] Implement a Database Adapter
 - [x] Implement an Embedder Adapter
-- [ ] Implement a Vector Store Adapter
+- [x] Implement a Vector Store Adapter
 - [x] Implement a Blob Store Adapter
 - [x] Implement a Job Queue Adapter
 - [ ] Allow text and PDF ingestion

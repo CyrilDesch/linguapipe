@@ -51,6 +51,16 @@ class HuggingFaceAdapter(config: EmbedderAdapterConfig.HuggingFace) extends Embe
         }
     }
 
+  override def embedQuery(
+    query: String
+  ): ZIO[Any, com.cyrelis.linguapipe.application.errors.PipelineError, Array[Float]] =
+    ErrorMapper.mapEmbeddingError {
+      for {
+        response  <- makeEmbeddingRequest(query)
+        embedding <- parseEmbeddingResponse(response)
+      } yield embedding
+    }
+
   protected def makeEmbeddingRequest(text: String): Task[Response[String]] = {
     val url = uri"${config.apiUrl}/vectors"
 

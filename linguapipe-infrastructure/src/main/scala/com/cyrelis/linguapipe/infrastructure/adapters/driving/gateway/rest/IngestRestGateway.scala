@@ -101,7 +101,10 @@ final class IngestRestGateway(
         ),
         TestEndpoints.testDatabase.zServerLogic(TestHandlers.handleDatabase(_).provide(ZLayer.succeed(dbSink))),
         TestEndpoints.testVectorStore.zServerLogic(
-          TestHandlers.handleVectorStore(_).provide(ZLayer.succeed(vectorSink))
+          TestHandlers.handleVectorStore(_).provide(ZLayer.succeed(vectorSink) ++ ZLayer.succeed(embedder))
+        ),
+        TestEndpoints.testVectorStoreQuery.zServerLogic(
+          TestHandlers.handleVectorStoreQuery(_).provide(ZLayer.succeed(vectorSink) ++ ZLayer.succeed(embedder))
         ),
         TestEndpoints.getAllTranscripts.zServerLogic(_ =>
           TestHandlers.handleGetAllTranscripts.provide(ZLayer.succeed(dbSink))

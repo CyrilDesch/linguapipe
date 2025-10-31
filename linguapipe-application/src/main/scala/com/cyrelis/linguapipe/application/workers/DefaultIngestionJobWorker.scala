@@ -81,7 +81,7 @@ final class DefaultIngestionJobWorker(
         jobRepository.update(
           jobState2.markIndexing()
         )
-      _          <- vectorSink.upsertEmbeddings(transcript.id, segments.map(_._2))
+      _          <- vectorSink.upsertEmbeddings(transcript.id, segments.map(_._2), transcript.metadata)
       finalState <-
         jobRepository.update(
           jobState3.markSuccess()

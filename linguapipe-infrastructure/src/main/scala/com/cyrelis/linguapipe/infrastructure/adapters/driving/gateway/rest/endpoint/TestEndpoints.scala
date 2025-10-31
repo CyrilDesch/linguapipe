@@ -53,7 +53,16 @@ object TestEndpoints {
       .in(jsonBody[TestVectorStoreRestDto])
       .out(jsonBody[TestResultRestDto])
       .errorOut(stringBody)
-      .description("Test vector store adapter")
+      .description("Test vector store adapter - upsert embeddings")
+
+  val testVectorStoreQuery
+    : PublicEndpoint[TestVectorStoreQueryRestDto, String, TestVectorStoreQueryResultRestDto, Any] =
+    sttp.tapir.endpoint.post
+      .in("test" / "vectorstore" / "query")
+      .in(jsonBody[TestVectorStoreQueryRestDto])
+      .out(jsonBody[TestVectorStoreQueryResultRestDto])
+      .errorOut(stringBody)
+      .description("Test vector store adapter - search similar vectors")
 
   val getAllTranscripts: PublicEndpoint[Unit, String, List[TranscriptResponseDto], Any] =
     sttp.tapir.endpoint.get
@@ -70,6 +79,7 @@ object TestEndpoints {
       testDocumentParser,
       testDatabase,
       testVectorStore,
+      testVectorStoreQuery,
       getAllTranscripts
     )
 }
