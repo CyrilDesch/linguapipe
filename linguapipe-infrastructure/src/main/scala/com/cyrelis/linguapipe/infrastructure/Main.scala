@@ -5,7 +5,8 @@ import com.cyrelis.linguapipe.application.ports.driven.datasource.DatasourcePort
 import com.cyrelis.linguapipe.application.ports.driven.embedding.EmbedderPort
 import com.cyrelis.linguapipe.application.ports.driven.job.JobQueuePort
 import com.cyrelis.linguapipe.application.ports.driven.parser.DocumentParserPort
-import com.cyrelis.linguapipe.application.ports.driven.storage.{BlobStorePort, VectorStorePort}
+import com.cyrelis.linguapipe.application.ports.driven.reranker.RerankerPort
+import com.cyrelis.linguapipe.application.ports.driven.storage.{BlobStorePort, LexicalStorePort, VectorStorePort}
 import com.cyrelis.linguapipe.application.ports.driven.transcription.TranscriberPort
 import com.cyrelis.linguapipe.application.ports.driving.{HealthCheckPort, IngestPort}
 import com.cyrelis.linguapipe.application.types.HealthStatus
@@ -21,8 +22,8 @@ import zio.*
 object Main extends ZIOAppDefault {
 
   type AllPorts = TranscriberPort & EmbedderPort & TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]] &
-    VectorStorePort & BlobStorePort & DocumentParserPort & IngestionJobRepository[[X] =>> ZIO[Any, PipelineError, X]] &
-    JobQueuePort & DatasourcePort
+    VectorStorePort & LexicalStorePort & RerankerPort & BlobStorePort & DocumentParserPort &
+    IngestionJobRepository[[X] =>> ZIO[Any, PipelineError, X]] & JobQueuePort & DatasourcePort
   type AppDependencies = RuntimeConfig & IngestPort & HealthCheckPort & Gateway & AllPorts & DefaultIngestionJobWorker
 
   override val bootstrap: ZLayer[ZIOAppArgs, Any, Any] =
@@ -39,6 +40,8 @@ object Main extends ZIOAppDefault {
       ModuleWiring.datasourceLayer,
       ModuleWiring.transcriptRepositoryLayer,
       ModuleWiring.vectorSinkLayer,
+      ModuleWiring.lexicalStoreLayer,
+      ModuleWiring.rerankerLayer,
       ModuleWiring.blobStoreLayer,
       ModuleWiring.documentParserLayer,
       ModuleWiring.jobRepositoryLayer,

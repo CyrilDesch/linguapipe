@@ -25,9 +25,15 @@ object ErrorMapper {
   def mapVectorStoreError[R, A](effect: ZIO[R, Throwable, A]): ZIO[R, PipelineError, A] =
     mapToPipelineError(effect, PipelineError.VectorStoreError.apply)
 
+  def mapLexicalStoreError[R, A](effect: ZIO[R, Throwable, A]): ZIO[R, PipelineError, A] =
+    mapToPipelineError(effect, PipelineError.LexicalStoreError.apply)
+
   def mapBlobStoreError[R, A](effect: ZIO[R, Throwable, A]): ZIO[R, PipelineError, A] =
     mapToPipelineError(effect, PipelineError.BlobStoreError.apply)
 
   def mapDocumentParserError[R, A](effect: ZIO[R, Throwable, A]): ZIO[R, PipelineError, A] =
     mapToPipelineError(effect, PipelineError.DocumentParserError.apply)
+
+  def mapRerankerError[R, A](effect: ZIO[R, Throwable, A]): ZIO[R, PipelineError, A] =
+    mapToPipelineError(effect, PipelineError.RerankerError.apply)
 }

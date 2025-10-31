@@ -81,6 +81,27 @@ services:
       retries: 3
       start_period: 20s
 
+  # Cross-encoder reranker service
+  reranker:
+    image: semitechnologies/reranker-transformers:baai-bge-reranker-v2-m3
+    restart: always
+    ports:
+      - "8083:8080"
+    environment:
+      - "ENABLE_CUDA=0"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8080/.well-known/ready')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
   # MinIO (S3-compatible object storage)
   minio:
     image: minio/minio:latest
@@ -116,9 +137,39 @@ services:
       timeout: 5s
       retries: 5
 
+  # OpenSearch for BM25/lexical search
+  opensearch:
+    image: opensearchproject/opensearch:2.14.0
+    restart: always
+    environment:
+      - "discovery.type=single-node"
+      - "DISABLE_SECURITY_PLUGIN=true"
+      - "OPENSEARCH_INITIAL_ADMIN_PASSWORD=linguapipe"
+      - "plugins.security.disabled=true"
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    volumes:
+      - "opensearch_data:/usr/share/opensearch/data"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q green"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
 volumes:
   postgres_data:
   qdrant_data:
   whisper_models:
   minio_data:
   redis_data:
+  opensearch_data:

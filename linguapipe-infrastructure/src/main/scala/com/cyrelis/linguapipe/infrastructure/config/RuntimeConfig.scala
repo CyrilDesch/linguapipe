@@ -36,6 +36,8 @@ final case class TimeoutConfig(
   embeddingMs: Long,
   databaseMs: Long,
   vectorStoreMs: Long,
+  lexicalStoreMs: Long,
+  rerankerMs: Long,
   blobStoreMs: Long,
   documentParserMs: Long
 )
@@ -50,6 +52,8 @@ final case class AdaptersConfig(
 final case class DrivenAdaptersConfig(
   database: DatabaseAdapterConfig,
   vectorStore: VectorStoreAdapterConfig,
+  lexicalStore: LexicalStoreAdapterConfig,
+  reranker: RerankerAdapterConfig,
   transcriber: TranscriberAdapterConfig,
   embedder: EmbedderAdapterConfig,
   blobStore: BlobStoreAdapterConfig,
@@ -71,6 +75,12 @@ enum DatabaseAdapterConfig:
 
 enum VectorStoreAdapterConfig:
   case Qdrant(url: String, apiKey: String, collection: String)
+
+enum LexicalStoreAdapterConfig:
+  case OpenSearch(url: String, index: String, username: Option[String], password: Option[String])
+
+enum RerankerAdapterConfig:
+  case Transformers(model: String, apiUrl: String)
 
 enum TranscriberAdapterConfig:
   case Whisper(modelPath: String, apiUrl: String)

@@ -89,6 +89,12 @@ object ConfigLoader {
         vectorStoreMs = if (timeoutConfig.hasPath("vector-store-ms")) {
           timeoutConfig.getLong("vector-store-ms")
         } else 10000,
+        lexicalStoreMs = if (timeoutConfig.hasPath("lexical-store-ms")) {
+          timeoutConfig.getLong("lexical-store-ms")
+        } else 10000,
+        rerankerMs = if (timeoutConfig.hasPath("reranker-ms")) {
+          timeoutConfig.getLong("reranker-ms")
+        } else 15000,
         blobStoreMs = if (timeoutConfig.hasPath("blob-store-ms")) {
           timeoutConfig.getLong("blob-store-ms")
         } else 15000,
@@ -102,6 +108,8 @@ object ConfigLoader {
         embeddingMs = 30000,
         databaseMs = 5000,
         vectorStoreMs = 10000,
+        lexicalStoreMs = 10000,
+        rerankerMs = 15000,
         blobStoreMs = 15000,
         documentParserMs = 60000
       )
@@ -158,6 +166,8 @@ object ConfigLoader {
     DrivenAdaptersConfig(
       database = loadDatabaseConfig(config.getConfig("database")),
       vectorStore = loadVectorStoreConfig(config.getConfig("vector-store")),
+      lexicalStore = loadLexicalStoreConfig(config.getConfig("lexical-store")),
+      reranker = loadRerankerConfig(config.getConfig("reranker")),
       transcriber = loadTranscriberConfig(config.getConfig("transcriber")),
       embedder = loadEmbedderConfig(config.getConfig("embedder")),
       blobStore = loadBlobStoreConfig(config.getConfig("blob-store")),
@@ -182,6 +192,20 @@ object ConfigLoader {
     }
   }
 
+  private def loadRerankerConfig(config: Config): RerankerAdapterConfig = {
+    val rType = config.getString("type")
+    rType match {
+      case "transformers" =>
+        val trConfig = config.getConfig("transformers")
+        RerankerAdapterConfig.Transformers(
+          model = trConfig.getString("model"),
+          apiUrl = trConfig.getString("api-url")
+        )
+      case other =>
+        throw new IllegalArgumentException(s"Unknown reranker type: $other")
+    }
+  }
+
   private def loadVectorStoreConfig(config: Config): VectorStoreAdapterConfig = {
     val vsType = config.getString("type")
     vsType match {
@@ -198,6 +222,28 @@ object ConfigLoader {
 
       case other =>
         throw new IllegalArgumentException(s"Unknown vector-store type: $other")
+    }
+  }
+
+  private def loadLexicalStoreConfig(config: Config): LexicalStoreAdapterConfig = {
+    val lsType = config.getString("type")
+    lsType match {
+      case "opensearch" =>
+        val osConfig = config.getConfig("opensearch")
+        LexicalStoreAdapterConfig.OpenSearch(
+          url = osConfig.getString("url"),
+          index = osConfig.getString("index"),
+          username =
+            if (osConfig.hasPath("username") && !osConfig.getString("username").isEmpty)
+              Some(osConfig.getString("username"))
+            else None,
+          password =
+            if (osConfig.hasPath("password") && !osConfig.getString("password").isEmpty)
+              Some(osConfig.getString("password"))
+            else None
+        )
+      case other =>
+        throw new IllegalArgumentException(s"Unknown lexical-store type: $other")
     }
   }
 

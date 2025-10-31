@@ -47,6 +47,18 @@ object TimeoutService {
   ): ZIO[R, PipelineError, A] =
     applyTimeout(effect, config.vectorStoreMs, "vector_store")
 
+  def applyLexicalStoreTimeout[R, A](
+    effect: ZIO[R, PipelineError, A],
+    config: TimeoutConfig
+  ): ZIO[R, PipelineError, A] =
+    applyTimeout(effect, config.lexicalStoreMs, "lexical_store")
+
+  def applyRerankerTimeout[R, A](
+    effect: ZIO[R, PipelineError, A],
+    config: TimeoutConfig
+  ): ZIO[R, PipelineError, A] =
+    applyTimeout(effect, config.rerankerMs, "reranker")
+
   def applyBlobStoreTimeout[R, A](
     effect: ZIO[R, PipelineError, A],
     config: TimeoutConfig

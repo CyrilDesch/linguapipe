@@ -5,7 +5,8 @@ import com.cyrelis.linguapipe.application.ports.driven.datasource.DatasourcePort
 import com.cyrelis.linguapipe.application.ports.driven.embedding.EmbedderPort
 import com.cyrelis.linguapipe.application.ports.driven.job.JobQueuePort
 import com.cyrelis.linguapipe.application.ports.driven.parser.DocumentParserPort
-import com.cyrelis.linguapipe.application.ports.driven.storage.{BlobStorePort, VectorStorePort}
+import com.cyrelis.linguapipe.application.ports.driven.reranker.RerankerPort
+import com.cyrelis.linguapipe.application.ports.driven.storage.{BlobStorePort, LexicalStorePort, VectorStorePort}
 import com.cyrelis.linguapipe.application.ports.driven.transcription.TranscriberPort
 import com.cyrelis.linguapipe.domain.ingestionjob.IngestionJobRepository
 import com.cyrelis.linguapipe.domain.transcript.TranscriptRepository
@@ -20,6 +21,8 @@ import com.cyrelis.linguapipe.infrastructure.adapters.driven.embedder.HuggingFac
 import com.cyrelis.linguapipe.infrastructure.adapters.driven.queue.RedisJobQueueAdapter
 import com.cyrelis.linguapipe.infrastructure.adapters.driven.transcriber.WhisperAdapter
 import com.cyrelis.linguapipe.infrastructure.adapters.driven.vectorstore.QdrantAdapter
+import com.cyrelis.linguapipe.infrastructure.adapters.driven.search.OpenSearchAdapter
+import com.cyrelis.linguapipe.infrastructure.adapters.driven.reranker.TransformersRerankerAdapter
 import com.cyrelis.linguapipe.infrastructure.adapters.driving.Gateway
 import com.cyrelis.linguapipe.infrastructure.adapters.driving.gateway.rest.IngestRestGateway
 import zio.*
@@ -58,6 +61,18 @@ object AdapterFactory {
     config match {
       case cfg: VectorStoreAdapterConfig.Qdrant =>
         new QdrantAdapter(cfg)
+    }
+
+  def createLexicalStoreAdapter(config: LexicalStoreAdapterConfig): LexicalStorePort =
+    config match {
+      case cfg: LexicalStoreAdapterConfig.OpenSearch =>
+        new OpenSearchAdapter(cfg)
+    }
+
+  def createRerankerAdapter(config: RerankerAdapterConfig): RerankerPort =
+    config match {
+      case cfg: RerankerAdapterConfig.Transformers =>
+        new TransformersRerankerAdapter(cfg)
     }
 
   def createTranscriberAdapter(config: TranscriberAdapterConfig): TranscriberPort =

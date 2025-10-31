@@ -5,7 +5,8 @@ import com.cyrelis.linguapipe.application.ports.driven.datasource.DatasourcePort
 import com.cyrelis.linguapipe.application.ports.driven.embedding.EmbedderPort
 import com.cyrelis.linguapipe.application.ports.driven.job.JobQueuePort
 import com.cyrelis.linguapipe.application.ports.driven.parser.DocumentParserPort
-import com.cyrelis.linguapipe.application.ports.driven.storage.{BlobStorePort, VectorStorePort}
+import com.cyrelis.linguapipe.application.ports.driven.reranker.RerankerPort
+import com.cyrelis.linguapipe.application.ports.driven.storage.{BlobStorePort, LexicalStorePort, VectorStorePort}
 import com.cyrelis.linguapipe.application.ports.driven.transcription.TranscriberPort
 import com.cyrelis.linguapipe.application.ports.driving.{HealthCheckPort, IngestPort}
 import com.cyrelis.linguapipe.application.services.{DefaultHealthCheckService, DefaultIngestService}
@@ -72,6 +73,24 @@ object ModuleWiring {
         baseVectorSink = AdapterFactory.createVectorStoreAdapter(config.adapters.driven.vectorStore)
         vectorSink     = RetryWrappers.wrapVectorSink(baseVectorSink, config.retry, config.timeouts)
       } yield vectorSink
+    }
+
+  val lexicalStoreLayer: ZLayer[RuntimeConfig, Nothing, LexicalStorePort] =
+    ZLayer {
+      for {
+        config         <- ZIO.service[RuntimeConfig]
+        baseLexicalStore = AdapterFactory.createLexicalStoreAdapter(config.adapters.driven.lexicalStore)
+        lexicalStore     = RetryWrappers.wrapLexicalStore(baseLexicalStore, config.retry, config.timeouts)
+      } yield lexicalStore
+    }
+
+  val rerankerLayer: ZLayer[RuntimeConfig, Nothing, RerankerPort] =
+    ZLayer {
+      for {
+        config       <- ZIO.service[RuntimeConfig]
+        baseReranker  = AdapterFactory.createRerankerAdapter(config.adapters.driven.reranker)
+        reranker      = RetryWrappers.wrapReranker(baseReranker, config.retry, config.timeouts)
+      } yield reranker
     }
 
   val blobStoreLayer: ZLayer[RuntimeConfig, Nothing, BlobStorePort] =
@@ -143,7 +162,8 @@ object ModuleWiring {
 
   val jobWorkerLayer: ZLayer[
     IngestionJobRepository[[X] =>> ZIO[Any, PipelineError, X]] & BlobStorePort & TranscriberPort & EmbedderPort &
-      TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]] & VectorStorePort & JobQueuePort & RuntimeConfig,
+      TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]] & VectorStorePort & LexicalStorePort & JobQueuePort &
+      RuntimeConfig,
     Nothing,
     DefaultIngestionJobWorker
   ] =
@@ -155,6 +175,7 @@ object ModuleWiring {
         embedder             <- ZIO.service[EmbedderPort]
         transcriptRepository <- ZIO.service[TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]]]
         vectorSink           <- ZIO.service[VectorStorePort]
+        lexicalStore         <- ZIO.service[LexicalStorePort]
         jobQueue             <- ZIO.service[JobQueuePort]
         config               <- ZIO.service[RuntimeConfig]
       } yield new DefaultIngestionJobWorker(
@@ -164,13 +185,15 @@ object ModuleWiring {
         embedder = embedder,
         transcriptRepository = transcriptRepository,
         vectorSink = vectorSink,
+        lexicalStore = lexicalStore,
         jobConfig = config.jobProcessing,
         jobQueue = jobQueue
       )
     }
 
   val healthCheckLayer: ZLayer[
-    TranscriberPort & EmbedderPort & DatasourcePort & VectorStorePort & BlobStorePort & JobQueuePort,
+    TranscriberPort & EmbedderPort & DatasourcePort & VectorStorePort & LexicalStorePort & RerankerPort & BlobStorePort &
+      JobQueuePort,
     Nothing,
     HealthCheckPort
   ] =
@@ -180,6 +203,8 @@ object ModuleWiring {
         embedder    <- ZIO.service[EmbedderPort]
         datasource  <- ZIO.service[DatasourcePort]
         vectorSink  <- ZIO.service[VectorStorePort]
+        lexical     <- ZIO.service[LexicalStorePort]
+        reranker    <- ZIO.service[RerankerPort]
         blobStore   <- ZIO.service[BlobStorePort]
         jobQueue    <- ZIO.service[JobQueuePort]
       } yield new DefaultHealthCheckService(
@@ -187,6 +212,8 @@ object ModuleWiring {
         embedder = embedder,
         datasource = datasource,
         vectorSink = vectorSink,
+        lexicalStore = lexical,
+        reranker = reranker,
         blobStore = blobStore,
         jobQueue = jobQueue
       )

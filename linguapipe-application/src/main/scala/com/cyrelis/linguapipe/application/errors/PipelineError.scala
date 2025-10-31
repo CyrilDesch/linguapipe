@@ -26,6 +26,11 @@ object PipelineError {
     override val cause: Option[Throwable] = None
   ) extends PipelineError
 
+  final case class LexicalStoreError(
+    message: String,
+    override val cause: Option[Throwable] = None
+  ) extends PipelineError
+
   final case class BlobStoreError(
     message: String,
     override val cause: Option[Throwable] = None
@@ -37,6 +42,11 @@ object PipelineError {
   ) extends PipelineError
 
   final case class DocumentParserError(
+    message: String,
+    override val cause: Option[Throwable] = None
+  ) extends PipelineError
+
+  final case class RerankerError(
     message: String,
     override val cause: Option[Throwable] = None
   ) extends PipelineError

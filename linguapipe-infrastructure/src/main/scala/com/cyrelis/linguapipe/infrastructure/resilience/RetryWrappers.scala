@@ -5,7 +5,8 @@ import java.util.UUID
 import com.cyrelis.linguapipe.application.errors.PipelineError
 import com.cyrelis.linguapipe.application.ports.driven.embedding.EmbedderPort
 import com.cyrelis.linguapipe.application.ports.driven.parser.DocumentParserPort
-import com.cyrelis.linguapipe.application.ports.driven.storage.{BlobStorePort, VectorStorePort}
+import com.cyrelis.linguapipe.application.ports.driven.reranker.RerankerPort
+import com.cyrelis.linguapipe.application.ports.driven.storage.{BlobStorePort, LexicalStorePort, VectorStorePort}
 import com.cyrelis.linguapipe.application.ports.driven.transcription.TranscriberPort
 import com.cyrelis.linguapipe.application.types.HealthStatus
 import com.cyrelis.linguapipe.domain.ingestionjob.{IngestionJob, IngestionJobRepository}
@@ -191,6 +192,68 @@ object RetryWrappers {
     ): ZIO[Any, PipelineError, String] = {
       val withTimeout = TimeoutService.applyBlobStoreTimeout(
         underlying.storeDocument(jobId, documentContent, mediaType),
+        timeoutConfig
+      )
+      RetryService.applyRetry(withTimeout, retryConfig)
+    }
+
+    override def healthCheck(): Task[HealthStatus] =
+      underlying.healthCheck()
+  }
+
+  def wrapLexicalStore(
+    underlying: LexicalStorePort,
+    retryConfig: RetryConfig,
+    timeoutConfig: TimeoutConfig
+  ): LexicalStorePort = new LexicalStorePort {
+    override def indexSegments(
+      transcriptId: UUID,
+      segments: List[(Int, String)],
+      metadata: Map[String, String]
+    ): ZIO[Any, PipelineError, Unit] = {
+      val withTimeout = TimeoutService.applyLexicalStoreTimeout(
+        underlying.indexSegments(transcriptId, segments, metadata),
+        timeoutConfig
+      )
+      RetryService.applyRetry(withTimeout, retryConfig)
+    }
+
+    override def deleteTranscript(transcriptId: UUID): ZIO[Any, PipelineError, Unit] = {
+      val withTimeout = TimeoutService.applyLexicalStoreTimeout(
+        underlying.deleteTranscript(transcriptId),
+        timeoutConfig
+      )
+      RetryService.applyRetry(withTimeout, retryConfig)
+    }
+
+    override def search(
+      queryText: String,
+      limit: Int,
+      filter: Option[com.cyrelis.linguapipe.application.types.VectorStoreFilter]
+    ): ZIO[Any, PipelineError, List[com.cyrelis.linguapipe.application.types.LexicalSearchResult]] = {
+      val withTimeout = TimeoutService.applyLexicalStoreTimeout(
+        underlying.search(queryText, limit, filter),
+        timeoutConfig
+      )
+      RetryService.applyRetry(withTimeout, retryConfig)
+    }
+
+    override def healthCheck(): Task[HealthStatus] =
+      underlying.healthCheck()
+  }
+
+  def wrapReranker(
+    underlying: RerankerPort,
+    retryConfig: RetryConfig,
+    timeoutConfig: TimeoutConfig
+  ): RerankerPort = new RerankerPort {
+    override def rerank(
+      query: String,
+      candidates: List[com.cyrelis.linguapipe.application.types.RerankerCandidate],
+      topK: Int
+    ): ZIO[Any, PipelineError, List[com.cyrelis.linguapipe.application.types.RerankerResult]] = {
+      val withTimeout = TimeoutService.applyRerankerTimeout(
+        underlying.rerank(query, candidates, topK),
         timeoutConfig
       )
       RetryService.applyRetry(withTimeout, retryConfig)

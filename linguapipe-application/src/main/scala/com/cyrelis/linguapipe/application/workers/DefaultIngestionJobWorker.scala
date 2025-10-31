@@ -7,7 +7,7 @@ import scala.math.pow
 import com.cyrelis.linguapipe.application.errors.PipelineError
 import com.cyrelis.linguapipe.application.ports.driven.embedding.EmbedderPort
 import com.cyrelis.linguapipe.application.ports.driven.job.JobQueuePort
-import com.cyrelis.linguapipe.application.ports.driven.storage.{BlobStorePort, VectorStorePort}
+import com.cyrelis.linguapipe.application.ports.driven.storage.{BlobStorePort, LexicalStorePort, VectorStorePort}
 import com.cyrelis.linguapipe.application.ports.driven.transcription.TranscriberPort
 import com.cyrelis.linguapipe.application.types.JobProcessingConfig
 import com.cyrelis.linguapipe.domain.ingestionjob.{IngestionJob, IngestionJobRepository, JobStatus}
@@ -21,6 +21,7 @@ final class DefaultIngestionJobWorker(
   embedder: EmbedderPort,
   transcriptRepository: TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]],
   vectorSink: VectorStorePort,
+  lexicalStore: LexicalStorePort,
   jobConfig: JobProcessingConfig,
   jobQueue: JobQueuePort
 ) {
@@ -81,7 +82,13 @@ final class DefaultIngestionJobWorker(
         jobRepository.update(
           jobState2.markIndexing()
         )
-      _          <- vectorSink.upsertEmbeddings(transcript.id, segments.map(_._2), transcript.metadata)
+      chunkVectors        = segments.map(_._2)
+      chunkTextsWithIndex = segments.zipWithIndex.map { case ((text, _), index) => (index, text) }
+      _                   <- vectorSink.upsertEmbeddings(transcript.id, chunkVectors, transcript.metadata)
+      _ <- lexicalStore
+             .deleteTranscript(transcript.id)
+             .catchAll(error => ZIO.logWarning(s"Failed to purge lexical index for ${transcript.id}: ${error.message}"))
+      _ <- lexicalStore.indexSegments(transcript.id, chunkTextsWithIndex, transcript.metadata)
       finalState <-
         jobRepository.update(
           jobState3.markSuccess()
