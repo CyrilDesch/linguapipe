@@ -66,12 +66,12 @@ jobs:
           key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.sbt') }}-${{ hashFiles('**/project/Dependencies.scala') }}
 
       - name: Build Docker image with sbt
-        run: sbt "linguapipe-infrastructure/Docker/publishLocal"
+        run: sbt "srag-infrastructure/Docker/publishLocal"
 
       - name: Tag and push Docker image
         run: |
           # Get the actual image name from sbt Docker plugin
-          LOCAL_IMAGE_NAME=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep linguapipe | head -1)
+          LOCAL_IMAGE_NAME=$(docker images --format "table {{.Repository}}:{{.Tag}}" | grep srag | head -1)
           echo "Local image: $LOCAL_IMAGE_NAME"
 
           # Create proper tags for GitHub Container Registry

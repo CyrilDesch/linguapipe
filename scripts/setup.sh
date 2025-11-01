@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-echo "Setting up LinguaPipe..."
+echo "Setting up SRAG..."
 
 # Check prerequisites
 echo "Checking prerequisites..."
@@ -51,6 +51,6 @@ echo ""
 echo "Next steps:"
 echo "   • Run the server: ./scripts/serverRun.sh"
 echo "   • Or run in foreground: ./scripts/backendRun.sh"
-echo "   • Or use sbt directly: sbt 'linguapipe-infrastructure/run'"
+echo "   • Or use sbt directly: sbt 'srag-infrastructure/run'"
 echo "" 
 echo "For more information, see README.md"

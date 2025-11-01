@@ -6,7 +6,7 @@ description: Declarative adapter configuration system
 
 ## Configuration Architecture
 
-LinguaPipe uses declarative configuration for all adapters via `application.conf`:
+SRAG uses declarative configuration for all adapters via `application.conf`:
 
 ```
 application.conf → ConfigLoader → RuntimeConfig → AdapterFactory → Concrete Adapters

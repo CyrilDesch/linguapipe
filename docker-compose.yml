@@ -6,13 +6,13 @@ services:
     volumes:
       - "postgres_data:/var/lib/postgresql/data"
     environment:
-      - "POSTGRES_USER=linguapipe"
-      - "POSTGRES_PASSWORD=linguapipe"
-      - "POSTGRES_DB=linguapipe"
+      - "POSTGRES_USER=srag"
+      - "POSTGRES_PASSWORD=srag"
+      - "POSTGRES_DB=srag"
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U linguapipe"]
+      test: ["CMD-SHELL", "pg_isready -U srag"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -83,7 +83,7 @@ services:
 
   # Cross-encoder reranker service
   reranker:
-    image: semitechnologies/reranker-transformers:baai-bge-reranker-v2-m3
+    image: semitechnologies/reranker-transformers:cross-encoder-ms-marco-MiniLM-L-6-v2
     restart: always
     ports:
       - "8083:8080"
@@ -144,8 +144,7 @@ services:
     environment:
       - "discovery.type=single-node"
       - "DISABLE_SECURITY_PLUGIN=true"
-      - "OPENSEARCH_INITIAL_ADMIN_PASSWORD=linguapipe"
-      - "plugins.security.disabled=true"
+      - "OPENSEARCH_INITIAL_ADMIN_PASSWORD=srag"
       - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
     ulimits:
       memlock:
@@ -160,7 +159,11 @@ services:
     volumes:
       - "opensearch_data:/usr/share/opensearch/data"
     healthcheck:
-      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q green"]
+      test:
+        [
+          "CMD-SHELL",
+          'curl -s http://localhost:9200/_cluster/health | grep -qE ''"status":"(green|yellow)"''',
+        ]
       interval: 15s
       timeout: 10s
       retries: 10
