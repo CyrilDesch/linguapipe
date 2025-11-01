@@ -57,13 +57,15 @@ object MainEndpoints {
     : PublicEndpoint[(TranscriptsQueryRestDto, sttp.model.QueryParams), String, List[TranscriptRestDto], Any] =
     sttp.tapir.endpoint.get
       .in("api" / "v1" / "transcripts")
-      .in(query[Option[String]]("sortBy").description("createdAt|metadata (default: createdAt)"))
-      .in(query[Option[String]]("metadataSort").description("Required when sortBy=metadata"))
-      .in(query[Option[String]]("order").description("asc|desc (default: asc)"))
+      .in(sttp.tapir.query[Option[String]]("sortBy").description("createdAt|metadata (default: createdAt)"))
+      .in(sttp.tapir.query[Option[String]]("metadataSort").description("Required when sortBy=metadata"))
+      .in(sttp.tapir.query[Option[String]]("order").description("asc|desc (default: asc)"))
       .in(
-        query[List[String]]("metadata").description(
-          "Repeatable: key=value; e.g., metadata=project=alpha&metadata=userId=42"
-        )
+        sttp.tapir
+          .query[List[String]]("metadata")
+          .description(
+            "Repeatable: key=value; e.g., metadata=project=alpha&metadata=userId=42"
+          )
       )
       .mapInTo[TranscriptsQueryRestDto]
       .in(queryParams)
@@ -98,6 +100,25 @@ object MainEndpoints {
       .errorOut(stringBody)
       .description("Get file by blob key (streaming with Content-Disposition and Content-Type headers)")
 
+  val query: PublicEndpoint[QueryRequestDto, String, List[QueryResponseDto], Any] =
+    sttp.tapir.endpoint.post
+      .in("api" / "v1" / "query")
+      .in(jsonBody[QueryRequestDto])
+      .out(jsonBody[List[QueryResponseDto]])
+      .errorOut(stringBody)
+      .description(
+        """
+        Search and retrieve context segments using hybrid semantic + lexical search with reranking.
+        
+        Request:
+        - query: Search query text (required)
+        - limit: Maximum number of results (default: 5, optional)
+        - metadata: Optional metadata filters (key-value pairs)
+        
+        Returns ranked list of context segments with scores.
+        """.stripMargin
+      )
+
   def all: List[PublicEndpoint[?, ?, ?, ?]] =
-    List(health, ingestAudioMultipart, ingestText, ingestDocument, jobStatus, transcripts, getFile)
+    List(health, ingestAudioMultipart, ingestText, ingestDocument, jobStatus, transcripts, getFile, query)
 }

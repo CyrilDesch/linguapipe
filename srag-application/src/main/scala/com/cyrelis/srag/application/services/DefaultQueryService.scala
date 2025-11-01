@@ -6,6 +6,7 @@ import com.cyrelis.srag.application.errors.PipelineError
 import com.cyrelis.srag.application.ports.driven.embedding.EmbedderPort
 import com.cyrelis.srag.application.ports.driven.reranker.RerankerPort
 import com.cyrelis.srag.application.ports.driven.storage.{LexicalStorePort, VectorStorePort}
+import com.cyrelis.srag.application.ports.driving.QueryPort
 import com.cyrelis.srag.application.types.{
   ContextSegment,
   LexicalSearchResult,
@@ -23,28 +24,23 @@ final class DefaultQueryService(
   lexicalStore: LexicalStorePort,
   reranker: RerankerPort,
   transcriptRepository: TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]]
-) {
+) extends QueryPort {
 
   private val fusionPoolSize   = 200
   private val rerankerPoolSize = 200
   private val rrfK             = 60
 
-  def retrieveContext(
+  override def retrieveContext(
     queryText: String,
     filter: Option[VectorStoreFilter],
     limit: Int = 5
   ): ZIO[Any, PipelineError, List[ContextSegment]] =
     for {
-      // Step 1: Embed the query text
-      queryVector <- embedder.embedQuery(queryText)
-
-      // Step 2: Query both semantic and lexical stores with generous candidate pool sizes
+      queryVector     <- embedder.embedQuery(queryText)
       semanticResults <- vectorStore.searchSimilar(queryVector, fusionPoolSize, filter)
       lexicalResults  <- lexicalStore.search(queryText, fusionPoolSize, filter)
-
-      fusedCandidates = fuseCandidates(semanticResults, lexicalResults)
-
-      result <- if (fusedCandidates.isEmpty) ZIO.succeed(List.empty[ContextSegment])
+      fusedCandidates  = fuseCandidates(semanticResults, lexicalResults)
+      result          <- if (fusedCandidates.isEmpty) ZIO.succeed(List.empty[ContextSegment])
                 else buildContextSegments(queryText, fusedCandidates, lexicalResults, limit)
     } yield result
 

@@ -6,8 +6,10 @@ import java.util.UUID
 import com.cyrelis.srag.application.errors.PipelineError
 import com.cyrelis.srag.application.ports.driven.embedding.EmbedderPort
 import com.cyrelis.srag.application.ports.driven.parser.DocumentParserPort
-import com.cyrelis.srag.application.ports.driven.storage.{BlobStorePort, VectorStorePort}
+import com.cyrelis.srag.application.ports.driven.reranker.RerankerPort
+import com.cyrelis.srag.application.ports.driven.storage.{BlobStorePort, LexicalStorePort, VectorStorePort}
 import com.cyrelis.srag.application.ports.driven.transcription.TranscriberPort
+import com.cyrelis.srag.application.types.RerankerCandidate
 import com.cyrelis.srag.domain.transcript.{IngestSource, Transcript, TranscriptRepository}
 import com.cyrelis.srag.infrastructure.adapters.driving.gateway.rest.dto.common.IngestSourceDto
 import com.cyrelis.srag.infrastructure.adapters.driving.gateway.rest.dto.test.*
@@ -166,4 +168,61 @@ object TestHandlers {
       .serviceWithZIO[TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]]](_.getAll())
       .map(_.map(TranscriptResponseDto.fromDomain))
       .mapError(ErrorHandler.errorToString)
+
+  def handleReranker(req: TestRerankerRestDto): ZIO[RerankerPort, String, TestRerankerResultRestDto] = {
+    val dummyTranscriptId = UUID.randomUUID()
+    val domainCandidates  = req.candidates.zipWithIndex.map { case (text, idx) =>
+      RerankerCandidate(
+        transcriptId = dummyTranscriptId,
+        segmentIndex = idx,
+        text = text
+      )
+    }
+    (for {
+      rerankedResults <- ZIO.serviceWithZIO[RerankerPort](_.rerank(req.query, domainCandidates, req.topK))
+      result          <- ZIO.succeed(
+                  TestRerankerResultRestDto(
+                    results = rerankedResults.map(r =>
+                      RerankerResultDto(
+                        text = r.candidate.text,
+                        score = r.score
+                      )
+                    )
+                  )
+                )
+    } yield result).mapError(ErrorHandler.errorToString)
+  }
+
+  def handleLexicalStoreIndex(
+    req: TestLexicalStoreIndexRestDto
+  ): ZIO[LexicalStorePort, String, TestResultRestDto] = {
+    val transcriptId = UUID.randomUUID()
+    val segments     = req.segments.zipWithIndex.map { case (text, idx) => (idx, text) }
+    (for {
+      _      <- ZIO.serviceWithZIO[LexicalStorePort](_.indexSegments(transcriptId, segments, req.metadata))
+      result <- ZIO.succeed(
+                  TestResultRestDto(
+                    result = s"Indexed ${segments.size} segments for transcript $transcriptId"
+                  )
+                )
+    } yield result).mapError(ErrorHandler.errorToString)
+  }
+
+  def handleLexicalStoreSearch(
+    req: TestLexicalStoreQueryRestDto
+  ): ZIO[LexicalStorePort, String, TestLexicalStoreQueryResultRestDto] =
+    (for {
+      searchResults <- ZIO.serviceWithZIO[LexicalStorePort](_.search(req.queryText, req.limit, None))
+      result        <- ZIO.succeed(
+                  TestLexicalStoreQueryResultRestDto(
+                    results = searchResults.map(r =>
+                      LexicalSearchResultDto(
+                        text = r.text,
+                        score = r.score
+                      )
+                    ),
+                    totalResults = searchResults.size
+                  )
+                )
+    } yield result).mapError(ErrorHandler.errorToString)
 }

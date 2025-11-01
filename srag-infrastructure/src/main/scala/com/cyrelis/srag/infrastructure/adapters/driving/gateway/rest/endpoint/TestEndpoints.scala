@@ -71,6 +71,31 @@ object TestEndpoints {
       .errorOut(stringBody)
       .description("Get all transcripts from database")
 
+  val testReranker: PublicEndpoint[TestRerankerRestDto, String, TestRerankerResultRestDto, Any] =
+    sttp.tapir.endpoint.post
+      .in("test" / "reranker")
+      .in(jsonBody[TestRerankerRestDto])
+      .out(jsonBody[TestRerankerResultRestDto])
+      .errorOut(stringBody)
+      .description("Test reranker adapter with query and candidates")
+
+  val testLexicalStoreIndex: PublicEndpoint[TestLexicalStoreIndexRestDto, String, TestResultRestDto, Any] =
+    sttp.tapir.endpoint.post
+      .in("test" / "lexicalstore" / "index")
+      .in(jsonBody[TestLexicalStoreIndexRestDto])
+      .out(jsonBody[TestResultRestDto])
+      .errorOut(stringBody)
+      .description("Test lexical store adapter - index segments")
+
+  val testLexicalStoreSearch
+    : PublicEndpoint[TestLexicalStoreQueryRestDto, String, TestLexicalStoreQueryResultRestDto, Any] =
+    sttp.tapir.endpoint.post
+      .in("test" / "lexicalstore" / "search")
+      .in(jsonBody[TestLexicalStoreQueryRestDto])
+      .out(jsonBody[TestLexicalStoreQueryResultRestDto])
+      .errorOut(stringBody)
+      .description("Test lexical store adapter - search segments")
+
   def all: List[PublicEndpoint[?, ?, ?, ?]] =
     List(
       testTranscriber,
@@ -80,6 +105,9 @@ object TestEndpoints {
       testDatabase,
       testVectorStore,
       testVectorStoreQuery,
-      getAllTranscripts
+      getAllTranscripts,
+      testReranker,
+      testLexicalStoreIndex,
+      testLexicalStoreSearch
     )
 }

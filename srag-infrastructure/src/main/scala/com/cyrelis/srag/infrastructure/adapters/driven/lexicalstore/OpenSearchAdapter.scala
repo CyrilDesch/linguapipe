@@ -1,4 +1,4 @@
-package com.cyrelis.srag.infrastructure.adapters.driven.search
+package com.cyrelis.srag.infrastructure.adapters.driven.lexicalstore
 
 import java.net.http.HttpClient
 import java.nio.charset.StandardCharsets
@@ -217,7 +217,7 @@ final class OpenSearchAdapter(config: LexicalStoreAdapterConfig.OpenSearch) exte
                          "match" -> Json.obj(
                            "text" -> Json.obj(
                              "query"            -> Json.fromString(queryText),
-                             "operator"         -> Json.fromString("and"),
+                             "operator"         -> Json.fromString("or"),
                              "zero_terms_query" -> Json.fromString("all")
                            )
                          )

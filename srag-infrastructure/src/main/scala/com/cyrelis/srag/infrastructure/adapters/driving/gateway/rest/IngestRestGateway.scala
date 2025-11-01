@@ -3,9 +3,10 @@ package com.cyrelis.srag.infrastructure.adapters.driving.gateway.rest
 import com.cyrelis.srag.application.errors.PipelineError
 import com.cyrelis.srag.application.ports.driven.embedding.EmbedderPort
 import com.cyrelis.srag.application.ports.driven.parser.DocumentParserPort
-import com.cyrelis.srag.application.ports.driven.storage.{BlobStorePort, VectorStorePort}
+import com.cyrelis.srag.application.ports.driven.reranker.RerankerPort
+import com.cyrelis.srag.application.ports.driven.storage.{BlobStorePort, LexicalStorePort, VectorStorePort}
 import com.cyrelis.srag.application.ports.driven.transcription.TranscriberPort
-import com.cyrelis.srag.application.ports.driving.{HealthCheckPort, IngestPort}
+import com.cyrelis.srag.application.ports.driving.{HealthCheckPort, IngestPort, QueryPort}
 import com.cyrelis.srag.domain.ingestionjob.IngestionJobRepository
 import com.cyrelis.srag.domain.transcript.TranscriptRepository
 import com.cyrelis.srag.infrastructure.adapters.driving.Gateway
@@ -24,10 +25,10 @@ final class IngestRestGateway(
 ) extends Gateway {
 
   type TestEnv = TranscriberPort & EmbedderPort & BlobStorePort & DocumentParserPort &
-    TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]] & VectorStorePort &
+    TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]] & VectorStorePort & LexicalStorePort & RerankerPort &
     IngestionJobRepository[[X] =>> ZIO[Any, PipelineError, X]]
 
-  private def buildRoutes: ZIO[IngestPort & HealthCheckPort & TestEnv, Nothing, Routes[Any, Response]] =
+  private def buildRoutes: ZIO[IngestPort & HealthCheckPort & QueryPort & TestEnv, Nothing, Routes[Any, Response]] =
     for {
       mainRoutes <- buildMainRoutes
       testRoutes <- buildTestRoutes
@@ -35,13 +36,14 @@ final class IngestRestGateway(
     } yield docsRoutes ++ mainRoutes ++ testRoutes
 
   private def buildMainRoutes: ZIO[
-    IngestPort & HealthCheckPort & BlobStorePort & TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]],
+    IngestPort & HealthCheckPort & QueryPort & BlobStorePort & TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]],
     Nothing,
     Routes[Any, Response]
   ] =
     for {
       ingestPort      <- ZIO.service[IngestPort]
       healthCheckPort <- ZIO.service[HealthCheckPort]
+      queryPort       <- ZIO.service[QueryPort]
       blobStore       <- ZIO.service[BlobStorePort]
       transcriptRepo  <- ZIO.service[TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]]]
     } yield ZioHttpInterpreter().toHttp(
@@ -77,6 +79,9 @@ final class IngestRestGateway(
         },
         MainEndpoints.getFile.zServerLogic(
           MainHandlers.handleGetFile(_).provide(ZLayer.succeed(blobStore))
+        ),
+        MainEndpoints.query.zServerLogic(
+          MainHandlers.handleQuery(_).provide(ZLayer.succeed(queryPort))
         )
       )
     )
@@ -89,6 +94,8 @@ final class IngestRestGateway(
       documentParser <- ZIO.service[DocumentParserPort]
       dbSink         <- ZIO.service[TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]]]
       vectorSink     <- ZIO.service[VectorStorePort]
+      lexicalStore   <- ZIO.service[LexicalStorePort]
+      reranker       <- ZIO.service[RerankerPort]
     } yield ZioHttpInterpreter().toHttp(
       List(
         TestEndpoints.testTranscriber.zServerLogic(
@@ -108,6 +115,15 @@ final class IngestRestGateway(
         ),
         TestEndpoints.getAllTranscripts.zServerLogic(_ =>
           TestHandlers.handleGetAllTranscripts.provide(ZLayer.succeed(dbSink))
+        ),
+        TestEndpoints.testReranker.zServerLogic(
+          TestHandlers.handleReranker(_).provide(ZLayer.succeed(reranker))
+        ),
+        TestEndpoints.testLexicalStoreIndex.zServerLogic(
+          TestHandlers.handleLexicalStoreIndex(_).provide(ZLayer.succeed(lexicalStore))
+        ),
+        TestEndpoints.testLexicalStoreSearch.zServerLogic(
+          TestHandlers.handleLexicalStoreSearch(_).provide(ZLayer.succeed(lexicalStore))
         )
       )
     )
@@ -124,7 +140,7 @@ final class IngestRestGateway(
       ZioHttpInterpreter().toHttp(docsEndpoints)
     }
 
-  def startWithDeps: ZIO[IngestPort & HealthCheckPort & TestEnv, Throwable, Unit] =
+  def startWithDeps: ZIO[IngestPort & HealthCheckPort & QueryPort & TestEnv, Throwable, Unit] =
     for {
       routes <- buildRoutes
       _      <- ZIO.logInfo(s"REST server will listen on $host:$port")

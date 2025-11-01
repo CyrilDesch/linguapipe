@@ -8,8 +8,8 @@ import com.cyrelis.srag.application.ports.driven.parser.DocumentParserPort
 import com.cyrelis.srag.application.ports.driven.reranker.RerankerPort
 import com.cyrelis.srag.application.ports.driven.storage.{BlobStorePort, LexicalStorePort, VectorStorePort}
 import com.cyrelis.srag.application.ports.driven.transcription.TranscriberPort
-import com.cyrelis.srag.application.ports.driving.{HealthCheckPort, IngestPort}
-import com.cyrelis.srag.application.services.{DefaultHealthCheckService, DefaultIngestService}
+import com.cyrelis.srag.application.ports.driving.{HealthCheckPort, IngestPort, QueryPort}
+import com.cyrelis.srag.application.services.{DefaultHealthCheckService, DefaultIngestService, DefaultQueryService}
 import com.cyrelis.srag.application.workers.DefaultIngestionJobWorker
 import com.cyrelis.srag.domain.ingestionjob.IngestionJobRepository
 import com.cyrelis.srag.domain.transcript.TranscriptRepository
@@ -188,6 +188,28 @@ object ModuleWiring {
         lexicalStore = lexicalStore,
         jobConfig = config.jobProcessing,
         jobQueue = jobQueue
+      )
+    }
+
+  val queryServiceLayer: ZLayer[
+    EmbedderPort & VectorStorePort & LexicalStorePort & RerankerPort &
+      TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]],
+    Nothing,
+    QueryPort
+  ] =
+    ZLayer {
+      for {
+        embedder             <- ZIO.service[EmbedderPort]
+        vectorStore          <- ZIO.service[VectorStorePort]
+        lexicalStore         <- ZIO.service[LexicalStorePort]
+        reranker             <- ZIO.service[RerankerPort]
+        transcriptRepository <- ZIO.service[TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]]]
+      } yield new DefaultQueryService(
+        embedder = embedder,
+        vectorStore = vectorStore,
+        lexicalStore = lexicalStore,
+        reranker = reranker,
+        transcriptRepository = transcriptRepository
       )
     }
 

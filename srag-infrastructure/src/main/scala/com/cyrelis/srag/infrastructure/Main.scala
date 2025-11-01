@@ -8,7 +8,7 @@ import com.cyrelis.srag.application.ports.driven.parser.DocumentParserPort
 import com.cyrelis.srag.application.ports.driven.reranker.RerankerPort
 import com.cyrelis.srag.application.ports.driven.storage.{BlobStorePort, LexicalStorePort, VectorStorePort}
 import com.cyrelis.srag.application.ports.driven.transcription.TranscriberPort
-import com.cyrelis.srag.application.ports.driving.{HealthCheckPort, IngestPort}
+import com.cyrelis.srag.application.ports.driving.{HealthCheckPort, IngestPort, QueryPort}
 import com.cyrelis.srag.application.types.HealthStatus
 import com.cyrelis.srag.application.workers.DefaultIngestionJobWorker
 import com.cyrelis.srag.domain.ingestionjob.IngestionJobRepository
@@ -24,7 +24,8 @@ object Main extends ZIOAppDefault {
   type AllPorts = TranscriberPort & EmbedderPort & TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]] &
     VectorStorePort & LexicalStorePort & RerankerPort & BlobStorePort & DocumentParserPort &
     IngestionJobRepository[[X] =>> ZIO[Any, PipelineError, X]] & JobQueuePort & DatasourcePort
-  type AppDependencies = RuntimeConfig & IngestPort & HealthCheckPort & Gateway & AllPorts & DefaultIngestionJobWorker
+  type AppDependencies = RuntimeConfig & IngestPort & HealthCheckPort & QueryPort & Gateway & AllPorts &
+    DefaultIngestionJobWorker
 
   override val bootstrap: ZLayer[ZIOAppArgs, Any, Any] =
     Runtime.removeDefaultLoggers >>> zio.logging.backend.SLF4J.slf4j
@@ -49,6 +50,7 @@ object Main extends ZIOAppDefault {
       // Use case layers
       ModuleWiring.ingestServiceLayer,
       ModuleWiring.jobWorkerLayer,
+      ModuleWiring.queryServiceLayer,
       ModuleWiring.healthCheckLayer,
       // Gateway layer
       ModuleWiring.gatewayLayer
@@ -125,7 +127,8 @@ object Main extends ZIOAppDefault {
       }
       .unit
 
-  private def startGateway: ZIO[Gateway & IngestPort & HealthCheckPort & RuntimeConfig & AllPorts, Throwable, Unit] =
+  private def startGateway
+    : ZIO[Gateway & IngestPort & HealthCheckPort & QueryPort & RuntimeConfig & AllPorts, Throwable, Unit] =
     for {
       gateway <- ZIO.service[Gateway]
       _       <- gateway match {

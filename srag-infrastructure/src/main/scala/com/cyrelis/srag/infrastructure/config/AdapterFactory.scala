@@ -18,9 +18,9 @@ import com.cyrelis.srag.infrastructure.adapters.driven.database.postgres.{
 }
 import com.cyrelis.srag.infrastructure.adapters.driven.documentparser.PdfBoxParser
 import com.cyrelis.srag.infrastructure.adapters.driven.embedder.HuggingFaceAdapter
+import com.cyrelis.srag.infrastructure.adapters.driven.lexicalstore.OpenSearchAdapter
 import com.cyrelis.srag.infrastructure.adapters.driven.queue.RedisJobQueueAdapter
 import com.cyrelis.srag.infrastructure.adapters.driven.reranker.TransformersRerankerAdapter
-import com.cyrelis.srag.infrastructure.adapters.driven.search.OpenSearchAdapter
 import com.cyrelis.srag.infrastructure.adapters.driven.transcriber.WhisperAdapter
 import com.cyrelis.srag.infrastructure.adapters.driven.vectorstore.QdrantAdapter
 import com.cyrelis.srag.infrastructure.adapters.driving.Gateway

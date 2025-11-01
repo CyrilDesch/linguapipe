@@ -6,7 +6,8 @@ import java.util.UUID
 import com.cyrelis.srag.application.errors.PipelineError
 import com.cyrelis.srag.application.errors.PipelineError.ConfigurationError
 import com.cyrelis.srag.application.ports.driven.storage.BlobStorePort
-import com.cyrelis.srag.application.ports.driving.{HealthCheckPort, IngestPort}
+import com.cyrelis.srag.application.ports.driving.{HealthCheckPort, IngestPort, QueryPort}
+import com.cyrelis.srag.application.types.VectorStoreFilter
 import com.cyrelis.srag.domain.transcript.TranscriptRepository
 import com.cyrelis.srag.infrastructure.adapters.driving.gateway.rest.dto.main.*
 import com.cyrelis.srag.infrastructure.adapters.driving.gateway.rest.error.ErrorHandler
@@ -120,4 +121,13 @@ object MainHandlers {
       val contentDisposition = s"""attachment; filename="${filename.replace("\"", "\\\"")}""""
       (contentDisposition, contentType, stream)
     }).mapError(ErrorHandler.errorToString)
+
+  def handleQuery(req: QueryRequestDto): ZIO[QueryPort, String, List[QueryResponseDto]] =
+    (for {
+      queryPort <- ZIO.service[QueryPort]
+      filter     = req.metadata.map(VectorStoreFilter.apply)
+      limit      = req.limit.getOrElse(5)
+      segments  <-
+        queryPort.retrieveContext(req.query, filter, limit)
+    } yield segments.map(QueryResponseDto.fromDomain)).mapError(ErrorHandler.errorToString)
 }
