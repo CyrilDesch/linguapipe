@@ -1,35 +1,49 @@
-# LinguaPipe (still in development)
+# SRAG (still in development)
 
-**A modular, production-ready Scala pipeline for transforming audio, text, and PDFs into searchable knowledge.**
+**An Open-source Scala-based Hybrid RAG offering deep document understanding and audio processing. Built with a flexible architecture that lets you easily plug in different models or storage systems, stateless and scalable by design.**
 
-LinguaPipe is designed with **Hexagonal Architecture** principles, making it easy to swap implementations without touching business logic. Built with **ZIO** for type-safe concurrency and **Scala 3** for modern functional programming.
+## Differences Against Other RAG Frameworks
+
+- **RAGFlow**: We bring JVM-based hexagonal architecture with declarative swappable adapters and stateless horizontal scaling, while RAGFlow is Python-based with a built-in UI.
+- **Haystack**: We bring type-safe Scala/ZIO specialized for RAG ingestion and hybrid retrieval, while Haystack is a general-purpose Python NLP framework. We don't offer general NLP pipelines, agent orchestration, or prompt management systems
+- **txtAI**: We bring enterprise hexagonal architecture designed for distributed cloud deployments with swappable adapters, while txtAI is lightweight and monolithic for single-machine setups. We don't optimize for single-machine deployment or provide semantic workflow utilities
+
+SRAG is designed with **Hexagonal Architecture** principles, making it easy to swap implementations without touching business logic. Built with **ZIO** for type-safe concurrency and **Scala 3** for modern functional programming.
 
 ## Features
 
-- Transcribe audio with Whisper (faster-whisper Docker)
-- Generate embeddings with HuggingFace Text Embeddings Inference (Docker)
-- Store data in PostgreSQL
-- Index vectors in Qdrant (Docker)
-- Store blobs with MinIO (S3-compatible Docker service)
-- Expose APIs via gRPC
-- Switch adapters through config files without changing code
-- Built with hexagonal architecture for clean testing and extension
-- Persistent job queue with Redis
+- **Document ingestion** : Upload text and documents (PDF, DOCX, etc.) for processing, storage, vectorization, and direct access via RAG queries. Visual content (diagrams, tables, charts) is automatically detected and extracted using intelligent vision models
+- **Audio ingestion** : Upload audio files, get them transcribed automatically, stored, vectorized, and directly accessible via RAG queries
+- **Image ingestion** : Upload images, extract text content and describe visual elements (diagrams, tables, charts) using LLM vision models, stored, vectorized, and directly accessible via RAG queries
+- **Metadata support** : Attach custom metadata (e.g., userId, projectId, tags) during ingestion for user-specific access control and filtering in RAG queries
+- **MCP server** : Model Context Protocol server for seamless integration with AI assistants
+- **RAG query** : Hybrid retrieval combining vector search, lexical search (BM25), and reranking with metadata filtering
+- **Declarative configuration** : Swap models, storage, and components through config files
+- **Resilient and stateless** : Retry mechanisms, timeouts, and horizontal scaling support
 
 ## Roadmap
 
-- [x] Implement REST Gateway
+- [x] Implement a Gateway (REST for now)
 - [x] Implement a Transcriber Adapter
 - [x] Allow audio ingestion
 - [x] Implement a Database Adapter
 - [x] Implement an Embedder Adapter
-- [ ] Implement a Vector Store Adapter
-- [ ] Implement a Blob Store Adapter
+- [x] Implement a Vector Store Adapter
+- [x] Implement a Blob Store Adapter
 - [x] Implement a Job Queue Adapter
-- [ ] Allow text and PDF ingestion
+- [ ] Allow text and documents (pdf, docx, ...) ingestion
+- [ ] Implement Deep Document Understanding
+- [ ] Implement MCP server
+- [ ] Implement image to text
 - [ ] Implement gRPC Gateway
 - [x] Implement Retry and Timeout Services
+- [x] Implement Reranker
+- [x] Implement Lexical Search (BM25)
 - [ ] Add daily cleanup job: delete orphan blobs and stale DB jobs (>24h)
+- [ ] Migrations should use a datasource instead of hardcoded
+- [ ] Implement better test of infrastructure modules
+- [ ] Implement test of application use cases
+- [ ] Build a documentation website
 
 ## 📋 Prerequisites
 
@@ -44,8 +58,8 @@ Note : No API keys or third-party accounts needed for the default configuration!
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/CyrilDesch/linguapipe.git
-cd linguapipe
+git clone https://github.com/CyrilDesch/srag.git
+cd srag
 ```
 
 ### 2. Start all services with Docker Compose
@@ -75,7 +89,7 @@ sbt compile
 ### 4. Run the application
 
 ```bash
-sbt "linguapipe-infrastructure/run"
+sbt "srag-infrastructure/run"
 ```
 
 ## 🎯 Usage
@@ -84,30 +98,59 @@ sbt "linguapipe-infrastructure/run"
 
 ```bash
 # Standard run (make sure Docker services are running first)
-sbt "linguapipe-infrastructure/run"
+sbt "srag-infrastructure/run"
 
 # Hot reload on code changes (development)
-sbt "~linguapipe-infrastructure/reStart"
+sbt "~srag-infrastructure/reStart"
 
 # Test the application
 sbt test
 ```
 
+### Visual Content Extraction
+
+SRAG intelligently extracts visual content from documents and images, ensuring diagrams, tables, charts, and other visual elements are properly indexed and searchable.
+
+**How it works:**
+
+1. **Text extraction first**: Documents are processed using standard text extraction tools (PDFBox, POI) to extract text content efficiently
+2. **Smart detection**: The system automatically detects pages or sections with visual elements (low text-to-image ratio, detected visual structures)
+3. **Intelligent extraction**: When visual content is detected, LLM vision models are used to:
+   - Extract text from images and scanned documents
+   - Describe diagrams, flowcharts, and complex visual structures in natural language
+   - Convert tables into structured text format (markdown or formatted text)
+   - Analyze charts and graphs to extract data and insights
+
+**Benefits:**
+
+- **Cost-effective**: Only uses expensive vision models when visual content is actually detected, keeping costs low for text-heavy documents
+- **Comprehensive**: Captures both textual and visual information, ensuring nothing is missed
+- **Searchable**: All visual content is converted to searchable text descriptions, making diagrams and tables queryable via RAG
+- **Configurable**: Choose between open-source vision models (cost-effective) or commercial models (maximum accuracy) based on your needs
+
+**What gets extracted:**
+
+- ✅ Text from images and scanned documents
+- ✅ Tables (converted to structured format)
+- ✅ Diagrams and flowcharts (described in natural language)
+- ✅ Charts and graphs (data and insights extracted)
+- ✅ Complex layouts (properly interpreted and structured)
+
 ## 🏗️ Architecture
 
-LinguaPipe follows **Hexagonal Architecture** (Ports & Adapters) with three distinct modules:
+SRAG follows **Hexagonal Architecture** (Ports & Adapters) with three distinct modules:
 
 ![Hexagonal Architecture Schema](docs/hexa-schema/image.png)
 
-### `linguapipe-domain`
+### `srag-domain`
 
 **Pure business logic** with zero external dependencies.
 
-### `linguapipe-application`
+### `srag-application`
 
 **Use cases and port definitions** orchestrating business workflows.
 
-### `linguapipe-infrastructure`
+### `srag-infrastructure`
 
 **Concrete implementations** of all adapters and runtime concerns.
 
@@ -121,35 +164,65 @@ LinguaPipe follows **Hexagonal Architecture** (Ports & Adapters) with three dist
 
 ## ⚙️ Configuration
 
-LinguaPipe uses **declarative configuration** through `application.conf`. Change adapters without modifying code!
+SRAG uses **declarative configuration** through `application.conf`. Change adapters without modifying code!
 
 ### Example: Switching Database
 
 ```hocon
 # PostgreSQL configuration (default)
-linguapipe.adapters.driven.database {
+srag.adapters.driven.database {
   type = "postgres"
   postgres {
     host = "localhost"
     port = 5432
-    database = "linguapipe"
-    user = "linguapipe"
-    password = "linguapipe"
+    database = "srag"
+    user = "srag"
+    password = "srag"
   }
 }
 ```
 
 ### Available Adapter Types
 
-| Component        | Implementation | Default (Docker) |
-| ---------------- | -------------- | ---------------- |
-| **Database**     | PostgreSQL     | PostgreSQL       |
-| **Vector Store** | Qdrant         | Qdrant           |
-| **Transcriber**  | Whisper        | Whisper          |
-| **Embedder**     | HuggingFace    | HuggingFace      |
-| **Blob Store**   | MinIO          | MinIO            |
-| **Job Queue**    | Redis          | Redis            |
-| **API Gateway**  | gRPC           | gRPC             |
+| Component            | Implementation    | Default (Docker)     |
+| -------------------- | ----------------- | -------------------- |
+| **Database**         | PostgreSQL        | PostgreSQL           |
+| **Vector Store**     | Qdrant            | Qdrant               |
+| **Transcriber**      | Whisper           | Whisper              |
+| **Embedder**         | HuggingFace       | HuggingFace          |
+| **Vision Extractor** | LLM Vision Models | LLaVA / GPT-4 Vision |
+| **Blob Store**       | MinIO             | MinIO                |
+| **Job Queue**        | Redis             | Redis                |
+| **API Gateway**      | REST / gRPC       | REST                 |
+
+### Vision Model Configuration
+
+SRAG supports multiple vision models for visual content extraction. Configure your preferred model in `application.conf`:
+
+```hocon
+srag.adapters.driven.vision {
+  type = "llava"  # Options: "llava" (open-source, cost-effective), "gpt4-vision" (commercial, high accuracy), "qwen-vl" (open-source alternative)
+
+  llava {
+    api-url = "http://localhost:8083"
+  }
+
+  gpt4-vision {
+    api-key = ${?OPENAI_API_KEY}
+    model = "gpt-4-vision-preview"
+  }
+
+  qwen-vl {
+    api-url = "http://localhost:8084"
+  }
+}
+```
+
+**Model Recommendations:**
+
+- **Cost-effective**: Use `llava` or `qwen-vl` (open-source, self-hosted) for most use cases
+- **Maximum accuracy**: Use `gpt4-vision` for critical documents requiring the highest extraction quality
+- **Hybrid approach**: Configure fallback behavior - use open-source models first, fall back to GPT-4 Vision for complex cases
 
 ## Environment Variables
 
@@ -168,13 +241,13 @@ export REDIS_HOST=your-redis-host
 export REDIS_PORT=6379
 export REDIS_PASSWORD=secret
 
-sbt "linguapipe-infrastructure/run"
+sbt "srag-infrastructure/run"
 ```
 
 Reference them in `application.conf`:
 
 ```hocon
-linguapipe.adapters.driven.database {
+srag.adapters.driven.database {
   postgres {
     password = ${?DB_PASSWORD}  # Optional override
     host = ${?DB_HOST}          # Optional override
@@ -182,15 +255,15 @@ linguapipe.adapters.driven.database {
 }
 ```
 
-## Extending LinguaPipe
+## Extending SRAG
 
 ### Adding a Driven Adapter
 
 To add a new driven adapter (e.g., Redis, MongoDB, etc.):
 
-1. Define the port interface in `linguapipe-application/***/ports/driven/` (if it doesn't exist)
+1. Define the port interface in `srag-application/***/ports/driven/` (if it doesn't exist)
 2. Add config types in `RuntimeConfig.scala`
-3. Implement the adapter in `linguapipe-infrastructure/***/adapters/driven/[type]/[tech]/`
+3. Implement the adapter in `srag-infrastructure/***/adapters/driven/[type]/[tech]/`
 4. Add factory case in `AdapterFactory.scala`
 5. Add parser logic in `ConfigLoader.scala`
 6. Document it in `application.conf`
@@ -200,19 +273,19 @@ To add a new driven adapter (e.g., Redis, MongoDB, etc.):
 
 To add a new driving adapter (e.g., WebSocket, CLI, etc.):
 
-1. Define the driving port in `linguapipe-application/***/ports/driving/`
+1. Define the driving port in `srag-application/***/ports/driving/`
 2. Add config types in `RuntimeConfig.scala`
-3. Implement the adapter in `linguapipe-infrastructure/***/adapters/driving/[tech]/`
+3. Implement the adapter in `srag-infrastructure/***/adapters/driving/[tech]/`
 4. Wire it in the runtime module with ZIO layers
 5. Update `application.conf` with the new adapter configuration
 
 ### Development Workflow
 
-1. Model domain entities in `linguapipe-domain`
-2. Define ports in `linguapipe-application/***/ports`
-3. Implement use cases in `linguapipe-application/***/usecase`
-4. Create adapters in `linguapipe-infrastructure/***/adapters`
-5. Wire everything in `linguapipe-infrastructure/***/runtime`
+1. Model domain entities in `srag-domain`
+2. Define ports in `srag-application/***/ports`
+3. Implement use cases in `srag-application/***/usecase`
+4. Create adapters in `srag-infrastructure/***/adapters`
+5. Wire everything in `srag-infrastructure/***/runtime`
 6. Configure in `application.conf`
 
 ## 🧪 Testing
@@ -222,9 +295,9 @@ To add a new driving adapter (e.g., WebSocket, CLI, etc.):
 sbt test
 
 # Run tests for a specific module
-sbt linguapipe-domain/test
-sbt linguapipe-application/test
-sbt linguapipe-infrastructure/test
+sbt srag-domain/test
+sbt srag-application/test
+sbt srag-infrastructure/test
 
 # Run tests with coverage
 sbt coverage test coverageReport

@@ -3,7 +3,7 @@ alwaysApply: true
 description: Development workflow and tooling guidelines
 ---
 
-# LinguaPipe Development Workflow
+# SRAG Development Workflow
 
 ## AI Assistant Behavior
 
@@ -83,18 +83,18 @@ sbt test
 
 ### Where to put new files
 
-| Type            | Location                                                                                         |
-| --------------- | ------------------------------------------------------------------------------------------------ |
-| Domain entity   | `modules/domain/src/main/scala/linguapipe/domain/`                                               |
-| Domain error    | `modules/domain/src/main/scala/linguapipe/domain/errors/`                                        |
-| Port interface  | `modules/application/src/main/scala/linguapipe/application/ports/[driving\|driven]/`             |
-| Use case        | `modules/application/src/main/scala/linguapipe/application/usecase/`                             |
-| Driving adapter | `modules/infrastructure/src/main/scala/linguapipe/infrastructure/adapters/driving/[grpc\|http]/` |
-| Driven adapter  | `modules/infrastructure/src/main/scala/linguapipe/infrastructure/adapters/driven/[type]/[tech]/` |
-| Config types    | `modules/infrastructure/src/main/scala/linguapipe/infrastructure/config/RuntimeConfig.scala`     |
-| Config loader   | `modules/infrastructure/src/main/scala/linguapipe/infrastructure/config/ConfigLoader.scala`      |
-| Adapter factory | `modules/infrastructure/src/main/scala/linguapipe/infrastructure/config/AdapterFactory.scala`    |
-| Runtime wiring  | `modules/infrastructure/src/main/scala/linguapipe/infrastructure/runtime/`                       |
+| Type            | Location                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------ |
+| Domain entity   | `modules/domain/src/main/scala/srag/domain/`                                               |
+| Domain error    | `modules/domain/src/main/scala/srag/domain/errors/`                                        |
+| Port interface  | `modules/application/src/main/scala/srag/application/ports/[driving\|driven]/`             |
+| Use case        | `modules/application/src/main/scala/srag/application/usecase/`                             |
+| Driving adapter | `modules/infrastructure/src/main/scala/srag/infrastructure/adapters/driving/[grpc\|http]/` |
+| Driven adapter  | `modules/infrastructure/src/main/scala/srag/infrastructure/adapters/driven/[type]/[tech]/` |
+| Config types    | `modules/infrastructure/src/main/scala/srag/infrastructure/config/RuntimeConfig.scala`     |
+| Config loader   | `modules/infrastructure/src/main/scala/srag/infrastructure/config/ConfigLoader.scala`      |
+| Adapter factory | `modules/infrastructure/src/main/scala/srag/infrastructure/config/AdapterFactory.scala`    |
+| Runtime wiring  | `modules/infrastructure/src/main/scala/srag/infrastructure/runtime/`                       |
 
 ## Code Quality Standards
 

@@ -1,7 +1,7 @@
 {
   "mcpServers": {
-    "linguapipe-metals": {
-      "url": "http://localhost:65347/sse"
+    "SRAG-metals": {
+      "url": "http://localhost:49843/sse"
     }
   }
 }

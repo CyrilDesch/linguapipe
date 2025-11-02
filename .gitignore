@@ -11,3 +11,4 @@ dist/
 # Locally: sbt publishLocal or sbt Docker/publishLocal
 # The CI will use the tag to publish the image
 version.sbt
+example
