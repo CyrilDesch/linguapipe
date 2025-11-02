@@ -27,7 +27,9 @@ final case class JobStatusRestDto(
   maxAttempts: Int,
   errorMessage: Option[String],
   createdAt: String,
-  updatedAt: String
+  updatedAt: String,
+  source: Option[String] = None,
+  metadata: Option[Map[String, String]] = None
 )
 
 object JobStatusRestDto {
@@ -42,6 +44,8 @@ object JobStatusRestDto {
       maxAttempts = job.maxAttempts,
       errorMessage = job.errorMessage,
       createdAt = job.createdAt.toString,
-      updatedAt = job.updatedAt.toString
+      updatedAt = job.updatedAt.toString,
+      source = Some(job.source.toString),
+      metadata = Some(job.metadata)
     )
 }

@@ -16,6 +16,7 @@
     <logger name="srag" level="${LOG_LEVEL:-INFO}" additivity="false">
         <appender-ref ref="CONSOLE" />
     </logger>
+    <logger name="com.cyrelis.srag" level="DEBUG" />
     <logger name="io.getquill" level="WARN" />
     <logger name="com.zaxxer.hikari" level="WARN" />
     <logger name="org.flywaydb" level="INFO" />

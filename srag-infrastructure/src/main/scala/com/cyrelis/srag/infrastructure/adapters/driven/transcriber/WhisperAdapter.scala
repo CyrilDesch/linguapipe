@@ -46,9 +46,19 @@ class WhisperAdapter(config: TranscriberAdapterConfig.Whisper) extends Transcrib
 
     ErrorMapper.mapTranscriptionError {
       for {
-        response        <- makeWhisperRequest(audioContent, mediaContentType, mediaFilename)
+        response <- makeWhisperRequest(audioContent, mediaContentType, mediaFilename)
+        _        <-
+          ZIO.logDebug(
+            s"Whisper API response: status=${response.code.code}, body length=${response.body.length} chars, body preview=${
+                if (response.body.length > 200) response.body.take(200) + "..." else response.body
+              }"
+          )
         whisperResponse <- parseWhisperResponse(response, audioContent.length, mediaContentType)
-        transcript      <- ZIO.succeed(
+        _               <-
+          ZIO.logDebug(
+            s"Parsed Whisper response: text length=${whisperResponse.text.length}, language=${whisperResponse.language.getOrElse("none")}"
+          )
+        transcript <- ZIO.succeed(
                         Transcript(
                           id = transcriptId,
                           language = whisperResponse.language.map(LanguageCode.unsafe),
@@ -88,6 +98,7 @@ class WhisperAdapter(config: TranscriberAdapterConfig.Whisper) extends Transcrib
           .fileName(mediaFilename)
           .contentType(mediaType)
       )
+      .readTimeout(1.hour)
       .response(asStringAlways)
 
     ZIO.scoped {
@@ -105,10 +116,19 @@ class WhisperAdapter(config: TranscriberAdapterConfig.Whisper) extends Transcrib
   ): Task[WhisperResponse] =
     if (response.code.isSuccess) {
       decode[WhisperResponse](response.body) match {
-        case Right(whisperResponse) => ZIO.succeed(whisperResponse)
-        case Left(error)            =>
+        case Right(whisperResponse) =>
+          if (whisperResponse.text.isEmpty) {
+            ZIO.logWarning(
+              s"Whisper API returned empty text! Response body: ${response.body.take(500)}"
+            ) *> ZIO.succeed(whisperResponse)
+          } else {
+            ZIO.succeed(whisperResponse)
+          }
+        case Left(error) =>
           ZIO.fail(
-            new RuntimeException(s"Invalid JSON from Whisper API (status ${response.code.code}): ${error.getMessage}")
+            new RuntimeException(
+              s"Invalid JSON from Whisper API (status ${response.code.code}): ${error.getMessage}. Response body: ${response.body.take(500)}"
+            )
           )
       }
     } else {
@@ -132,7 +152,7 @@ class WhisperAdapter(config: TranscriberAdapterConfig.Whisper) extends Transcrib
       backend  <- HttpClientZioBackend()
       response <- basicRequest
                     .get(uri"${config.apiUrl}/docs")
-                    .readTimeout(5.seconds)
+                    .readTimeout(10.seconds)
                     .send(backend)
       _ <- backend.close()
     } yield {
@@ -165,7 +185,7 @@ class WhisperAdapter(config: TranscriberAdapterConfig.Whisper) extends Transcrib
           HealthStatus.Timeout(
             serviceName = serviceName,
             checkedAt = now,
-            timeoutMs = 5000
+            timeoutMs = 10000
           )
         case _ =>
           HealthStatus.Unhealthy(

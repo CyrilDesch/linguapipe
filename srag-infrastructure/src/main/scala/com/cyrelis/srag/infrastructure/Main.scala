@@ -4,6 +4,7 @@ import com.cyrelis.srag.application.errors.PipelineError
 import com.cyrelis.srag.application.ports.driven.datasource.DatasourcePort
 import com.cyrelis.srag.application.ports.driven.embedding.EmbedderPort
 import com.cyrelis.srag.application.ports.driven.job.JobQueuePort
+import com.cyrelis.srag.application.ports.driven.job.JobQueuePort.LockExpirationSeconds
 import com.cyrelis.srag.application.ports.driven.parser.DocumentParserPort
 import com.cyrelis.srag.application.ports.driven.reranker.RerankerPort
 import com.cyrelis.srag.application.ports.driven.storage.{BlobStorePort, LexicalStorePort, VectorStorePort}
@@ -35,7 +36,6 @@ object Main extends ZIOAppDefault {
       RuntimeConfig.layer
         .tapError(err => ZIO.logError(s"Failed to load configuration: ${err.getMessage}"))
         .orDie,
-      // Adapter layers
       ModuleWiring.transcriberLayer,
       ModuleWiring.embedderLayer,
       ModuleWiring.datasourceLayer,
@@ -47,12 +47,10 @@ object Main extends ZIOAppDefault {
       ModuleWiring.documentParserLayer,
       ModuleWiring.jobRepositoryLayer,
       ModuleWiring.jobQueueLayer,
-      // Use case layers
       ModuleWiring.ingestServiceLayer,
       ModuleWiring.jobWorkerLayer,
       ModuleWiring.queryServiceLayer,
       ModuleWiring.healthCheckLayer,
-      // Gateway layer
       ModuleWiring.gatewayLayer
     )
 
@@ -61,12 +59,36 @@ object Main extends ZIOAppDefault {
       _           <- ZIO.logInfo("Starting SRAG application...")
       _           <- runMigrations
       _           <- ensureAllHealthy
+      _           <- recoverAbandonedJobsAfterDelay.forkDaemon
       worker      <- ZIO.service[DefaultIngestionJobWorker]
       _           <- ZIO.logInfo("Starting ingestion job worker...")
       workerFiber <- worker.run.forkDaemon
       _           <- startGateway
       _           <- ZIO.never.onInterrupt(workerFiber.interrupt)
     } yield ()).orDie
+
+  private def recoverAbandonedJobsAfterDelay: ZIO[JobQueuePort, Nothing, Unit] =
+    for {
+      _ <- ZIO.logInfo(s"Scheduling job recovery in $LockExpirationSeconds seconds (after lock expiration)...")
+      _ <- ZIO.sleep(LockExpirationSeconds.seconds)
+      _ <- recoverAbandonedJobs
+    } yield ()
+
+  private def recoverAbandonedJobs: ZIO[JobQueuePort, Nothing, Unit] =
+    for {
+      jobQueue       <- ZIO.service[JobQueuePort]
+      _              <- ZIO.logInfo("Recovering abandoned jobs from Redis...")
+      redisRecovered <-
+        jobQueue
+          .recoverStaleJobs()
+          .catchAll(err => ZIO.logWarning(s"Failed to recover stale jobs from Redis: ${err.message}").as(0))
+      _ <- if (redisRecovered > 0) {
+             ZIO.logInfo(s"Recovered $redisRecovered job(s) from Redis processing queue")
+           } else {
+             ZIO.unit
+           }
+      _ <- ZIO.logInfo("Job recovery completed")
+    } yield ()
 
   private def runMigrations: ZIO[RuntimeConfig, Throwable, Unit] =
     for {
@@ -89,8 +111,7 @@ object Main extends ZIOAppDefault {
     for {
       healthCheckPort <- ZIO.service[HealthCheckPort]
       _               <- ZIO.logInfo("Running health checks...")
-      // One health-check attempt that fails if any dependency is unhealthy
-      attempt = for {
+      attempt          = for {
                   results <- healthCheckPort.checkAllServices()
                   _       <- logHealthResults(results)
                   hasBad   = results.exists {

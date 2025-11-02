@@ -130,4 +130,5 @@ object MainHandlers {
       segments  <-
         queryPort.retrieveContext(req.query, filter, limit)
     } yield segments.map(QueryResponseDto.fromDomain)).mapError(ErrorHandler.errorToString)
+
 }

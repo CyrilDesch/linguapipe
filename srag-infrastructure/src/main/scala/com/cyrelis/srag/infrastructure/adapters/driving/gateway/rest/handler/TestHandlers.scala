@@ -129,10 +129,8 @@ object TestHandlers {
                    )
       embeddings <- ZIO.serviceWithZIO[EmbedderPort](_.embed(transcript))
       vectors     = embeddings.map(_._2)
-      // Temporairement: ajouter le texte du transcript dans les métadonnées
-      metadata = Map("transcript_text" -> transcript.text)
-      _       <- ZIO.serviceWithZIO[VectorStorePort](_.upsertEmbeddings(transcriptId, vectors, metadata))
-      result  <- ZIO.succeed(
+      _          <- ZIO.serviceWithZIO[VectorStorePort](_.upsertEmbeddings(transcriptId, vectors, Map.empty))
+      result     <- ZIO.succeed(
                   TestResultRestDto(
                     result = s"Upserted ${vectors.size} vectors for transcript $transcriptId"
                   )
@@ -153,8 +151,7 @@ object TestHandlers {
                         transcriptId = r.transcriptId.toString,
                         segmentIndex = r.segmentIndex,
                         score = r.score,
-                        transcriptText =
-                          r.metadata.flatMap(_.get("transcript_text")) // Temporairement: extraire le texte du payload
+                        transcriptText = None
                       )
                     ),
                     totalResults = searchResults.size

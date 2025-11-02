@@ -124,6 +124,15 @@ object RetryWrappers {
       RetryService.applyRetry(withTimeout, retryConfig)
     }
 
+    override def listAllVectors()
+      : ZIO[Any, PipelineError, List[com.cyrelis.srag.application.ports.driven.storage.VectorInfo]] = {
+      val withTimeout = TimeoutService.applyVectorStoreTimeout(
+        underlying.listAllVectors(),
+        timeoutConfig
+      )
+      RetryService.applyRetry(withTimeout, retryConfig)
+    }
+
     override def healthCheck(): Task[HealthStatus] =
       underlying.healthCheck()
   }
@@ -197,6 +206,15 @@ object RetryWrappers {
       RetryService.applyRetry(withTimeout, retryConfig)
     }
 
+    override def listAllBlobs()
+      : ZIO[Any, PipelineError, List[com.cyrelis.srag.application.ports.driven.storage.BlobInfo]] = {
+      val withTimeout = TimeoutService.applyBlobStoreTimeout(
+        underlying.listAllBlobs(),
+        timeoutConfig
+      )
+      RetryService.applyRetry(withTimeout, retryConfig)
+    }
+
     override def healthCheck(): Task[HealthStatus] =
       underlying.healthCheck()
   }
@@ -233,6 +251,15 @@ object RetryWrappers {
     ): ZIO[Any, PipelineError, List[com.cyrelis.srag.application.types.LexicalSearchResult]] = {
       val withTimeout = TimeoutService.applyLexicalStoreTimeout(
         underlying.search(queryText, limit, filter),
+        timeoutConfig
+      )
+      RetryService.applyRetry(withTimeout, retryConfig)
+    }
+
+    override def listAllDocuments()
+      : ZIO[Any, PipelineError, List[com.cyrelis.srag.application.ports.driven.storage.DocumentInfo]] = {
+      val withTimeout = TimeoutService.applyLexicalStoreTimeout(
+        underlying.listAllDocuments(),
         timeoutConfig
       )
       RetryService.applyRetry(withTimeout, retryConfig)
@@ -310,6 +337,14 @@ object RetryWrappers {
       override def listRunnable(now: java.time.Instant, limit: Int): ZIO[Any, PipelineError, List[IngestionJob]] = {
         val withTimeout = TimeoutService.applyDatabaseTimeout(
           underlying.listRunnable(now, limit),
+          timeoutConfig
+        )
+        RetryService.applyRetry(withTimeout, retryConfig)
+      }
+
+      override def listAll(): ZIO[Any, PipelineError, List[IngestionJob]] = {
+        val withTimeout = TimeoutService.applyDatabaseTimeout(
+          underlying.listAll(),
           timeoutConfig
         )
         RetryService.applyRetry(withTimeout, retryConfig)

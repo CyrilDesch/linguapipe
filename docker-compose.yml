@@ -40,7 +40,7 @@ services:
     ports:
       - "9001:9000"
     environment:
-      - "ASR_MODEL=tiny"
+      - "ASR_MODEL=base"
       - "ASR_ENGINE=faster_whisper"
       - "ASR_DEVICE=cpu"
     volumes:

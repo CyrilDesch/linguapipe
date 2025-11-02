@@ -42,7 +42,7 @@ final case class TimeoutConfig(
   documentParserMs: Long
 )
 
-final case class ApiConfig(host: String, port: Int)
+final case class ApiConfig(host: String, port: Int, maxBodySizeBytes: Long)
 
 final case class AdaptersConfig(
   driven: DrivenAdaptersConfig,
@@ -102,7 +102,7 @@ enum JobQueueAdapterConfig:
   )
 
 enum ApiAdapterConfig:
-  case REST(host: String, port: Int)
+  case REST(host: String, port: Int, maxBodySizeBytes: Long)
   case GRPC(host: String, port: Int)
 
 object RuntimeConfig {

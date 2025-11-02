@@ -7,7 +7,7 @@ import java.util.UUID
 import scala.concurrent.duration.*
 
 import com.cyrelis.srag.application.errors.PipelineError
-import com.cyrelis.srag.application.ports.driven.storage.VectorStorePort
+import com.cyrelis.srag.application.ports.driven.storage.{VectorInfo, VectorStorePort}
 import com.cyrelis.srag.application.types.{HealthStatus, VectorSearchResult, VectorStoreFilter}
 import com.cyrelis.srag.infrastructure.config.VectorStoreAdapterConfig
 import com.cyrelis.srag.infrastructure.resilience.ErrorMapper
@@ -38,7 +38,7 @@ object QdrantFilterMatch {
   given Codec[QdrantFilterMatch] = deriveCodec
 }
 
-final case class QdrantFilterCondition(key: String, matchValue: QdrantFilterMatch)
+final case class QdrantFilterCondition(key: String, `match`: QdrantFilterMatch)
 
 object QdrantFilterCondition {
   given Codec[QdrantFilterCondition] = deriveCodec
@@ -104,23 +104,11 @@ final class QdrantAdapter(config: VectorStoreAdapterConfig.Qdrant) extends Vecto
                          "transcript_id" -> transcriptId.toString,
                          "index"         -> index.toString
                        )
-                       // Add course_id and session_id from metadata if present
-                       val payloadWithMetadata = metadata
-                         .get("course_id")
-                         .fold(basePayload)(courseId => basePayload + ("course_id" -> courseId)) match {
-                         case payloadWithCourse =>
-                           metadata
-                             .get("session_id")
-                             .fold(payloadWithCourse)(sessionId => payloadWithCourse + ("session_id" -> sessionId))
-                       }
-                       // Temporairement: ajouter le texte du transcript dans le payload
-                       val payloadWithText = metadata
-                         .get("transcript_text")
-                         .fold(payloadWithMetadata)(text => payloadWithMetadata + ("transcript_text" -> text))
+                       val fullPayload = basePayload ++ metadata
                        QdrantPoint(
                          id = UUID.randomUUID().toString,
                          vector = vector.toList,
-                         payload = payloadWithText
+                         payload = fullPayload
                        )
                      }
             requestBody = QdrantUpsertRequest(points).asJson.noSpaces
@@ -206,12 +194,10 @@ final class QdrantAdapter(config: VectorStoreAdapterConfig.Qdrant) extends Vecto
                             VectorSearchResult(
                               transcriptId = transcriptId,
                               segmentIndex = segmentIndex,
-                              score = qdrantResult.score,
-                              metadata = Some(payload) // Temporairement: retourner le payload complet
+                              score = qdrantResult.score
                             )
                           )
                         case None =>
-                          // Skip results without payload (should not happen if with_payload=true)
                           None
                       }
                     }
@@ -224,10 +210,124 @@ final class QdrantAdapter(config: VectorStoreAdapterConfig.Qdrant) extends Vecto
       must = filter.metadata.map { case (key, value) =>
         QdrantFilterCondition(
           key = key,
-          matchValue = QdrantFilterMatch(value = value)
+          `match` = QdrantFilterMatch(value = value)
         )
       }.toList
     )
+
+  final case class QdrantScrollRequest(
+    limit: Int,
+    offset: Option[String] = None,
+    with_payload: Option[Boolean] = Some(true),
+    with_vector: Option[Boolean] = Some(true)
+  )
+
+  object QdrantScrollRequest {
+    given Codec[QdrantScrollRequest] = deriveCodec
+  }
+
+  final case class QdrantScrollResult(
+    id: String,
+    payload: Option[Map[String, String]] = None,
+    vector: Option[List[Float]] = None
+  )
+
+  object QdrantScrollResult {
+    given Codec[QdrantScrollResult] = deriveCodec
+  }
+
+  final case class QdrantScrollPage(
+    points: List[QdrantScrollResult],
+    next_page_offset: Option[String] = None
+  )
+
+  object QdrantScrollPage {
+    given Codec[QdrantScrollPage] = deriveCodec
+  }
+
+  final case class QdrantScrollResponse(
+    result: QdrantScrollPage,
+    status: Option[String] = None
+  )
+
+  object QdrantScrollResponse {
+    given Codec[QdrantScrollResponse] = deriveCodec
+  }
+
+  override def listAllVectors(): ZIO[Any, PipelineError, List[VectorInfo]] =
+    ErrorMapper.mapVectorStoreError {
+      def scrollPage(
+        backend: Backend[Task],
+        headers: Map[String, String],
+        offset: Option[String],
+        acc: List[QdrantScrollResult]
+      ): ZIO[Any, Throwable, List[QdrantScrollResult]] = {
+        val scrollRequest = QdrantScrollRequest(
+          limit = 100,
+          offset = offset,
+          with_payload = Some(true),
+          with_vector = Some(true)
+        )
+        val requestBody = scrollRequest.asJson.noSpaces
+        val url         = uri"$baseUrl/collections/${config.collection}/points/scroll"
+        val request     = basicRequest
+          .post(url)
+          .headers(headers)
+          .contentType(MediaType.ApplicationJson)
+          .body(requestBody)
+          .response(asStringAlways)
+        for {
+          response <- request.send(backend)
+          _        <- ZIO
+                 .when(!response.code.isSuccess)(
+                   ZIO.fail(
+                     new RuntimeException(
+                       s"Qdrant scroll failed (status ${response.code.code}): ${response.body}"
+                     )
+                   )
+                 )
+          scrollResponse <- ZIO
+                              .fromEither(decode[QdrantScrollResponse](response.body))
+                              .mapError(err =>
+                                new RuntimeException(
+                                  s"Failed to parse Qdrant scroll response: ${err.getMessage}"
+                                )
+                              )
+          newAcc     = acc ++ scrollResponse.result.points
+          nextOffset = scrollResponse.result.next_page_offset
+          result    <- if (nextOffset.isDefined) scrollPage(backend, headers, nextOffset, newAcc)
+                    else ZIO.succeed(newAcc)
+        } yield result
+      }
+
+      ZIO.scoped {
+        for {
+          backend   <- HttpClientZioBackend.scopedUsingClient(httpClient)
+          headers    = buildHeaders()
+          allPoints <- scrollPage(backend, headers, None, List.empty)
+          vectors   <- ZIO.foreach(allPoints) { point =>
+                       for {
+                         transcriptId <- ZIO.succeed(
+                                           point.payload
+                                             .flatMap(_.get("transcript_id"))
+                                             .map(UUID.fromString)
+                                         )
+                         indexValue   = point.payload.flatMap(_.get("index"))
+                         segmentIndex = indexValue.map(_.toInt)
+                         result      <- ZIO.succeed(
+                                     VectorInfo(
+                                       id = point.id,
+                                       transcriptId = transcriptId,
+                                       segmentIndex = segmentIndex,
+                                       vector = point.vector,
+                                       payload = point.payload
+                                     )
+                                   )
+                       } yield result
+                     }
+        } yield vectors
+      }
+    }
 
   override def healthCheck(): Task[HealthStatus] = {
     val now = Instant.now()

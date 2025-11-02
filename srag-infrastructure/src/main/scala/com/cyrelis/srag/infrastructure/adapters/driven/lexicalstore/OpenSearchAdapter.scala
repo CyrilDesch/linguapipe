@@ -8,7 +8,7 @@ import java.util.{Base64, UUID}
 import scala.concurrent.duration.*
 
 import com.cyrelis.srag.application.errors.PipelineError
-import com.cyrelis.srag.application.ports.driven.storage.LexicalStorePort
+import com.cyrelis.srag.application.ports.driven.storage.{DocumentInfo, LexicalStorePort}
 import com.cyrelis.srag.application.types.{HealthStatus, LexicalSearchResult, VectorStoreFilter}
 import com.cyrelis.srag.infrastructure.config.LexicalStoreAdapterConfig
 import com.cyrelis.srag.infrastructure.resilience.ErrorMapper
@@ -267,6 +267,45 @@ final class OpenSearchAdapter(config: LexicalStoreAdapterConfig.OpenSearch) exte
                       )
                     }
         } yield results
+      }
+    }
+
+  override def listAllDocuments(): ZIO[Any, PipelineError, List[DocumentInfo]] =
+    ErrorMapper.mapLexicalStoreError {
+      ZIO.scoped {
+        for {
+          backend  <- HttpClientZioBackend.scopedUsingClient(httpClient)
+          _        <- ensureIndexExists(backend)
+          queryBody = Json
+                        .obj(
+                          "size"  -> Json.fromInt(10000),
+                          "query" -> Json.obj("match_all" -> Json.obj())
+                        )
+                        .noSpaces
+          response <- basicRequest
+                        .post(uri"$indexUrl/_search")
+                        .headers(authHeaders)
+                        .contentType(MediaType.ApplicationJson)
+                        .body(queryBody)
+                        .response(asStringAlways)
+                        .send(backend)
+          _ <- ZIO
+                 .when(!response.code.isSuccess)(
+                   ZIO.fail(new RuntimeException(s"OpenSearch search failed (${response.code.code}): ${response.body}"))
+                 )
+          parsed <- ZIO
+                      .fromEither(parser.decode[OpenSearchSearchResponse](response.body))
+                      .mapError(err => new RuntimeException(s"Failed to decode OpenSearch response: ${err.getMessage}"))
+          documents = parsed.hits.hits.map { hit =>
+                        DocumentInfo(
+                          id = hit._id,
+                          transcriptId = Some(UUID.fromString(hit._source.transcript_id)),
+                          segmentIndex = Some(hit._source.segment_index),
+                          text = Some(hit._source.text),
+                          metadata = hit._source.metadata
+                        )
+                      }
+        } yield documents
       }
     }
 

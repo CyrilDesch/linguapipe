@@ -6,6 +6,14 @@ import com.cyrelis.srag.application.errors.PipelineError
 import com.cyrelis.srag.application.types.{HealthStatus, LexicalSearchResult, VectorStoreFilter}
 import zio.*
 
+final case class DocumentInfo(
+  id: String,
+  transcriptId: Option[UUID],
+  segmentIndex: Option[Int],
+  text: Option[String],
+  metadata: Option[Map[String, String]]
+)
+
 trait LexicalStorePort {
   def indexSegments(
     transcriptId: UUID,
@@ -20,6 +28,8 @@ trait LexicalStorePort {
     limit: Int,
     filter: Option[VectorStoreFilter] = None
   ): ZIO[Any, PipelineError, List[LexicalSearchResult]]
+
+  def listAllDocuments(): ZIO[Any, PipelineError, List[DocumentInfo]]
 
   def healthCheck(): Task[HealthStatus]
 }

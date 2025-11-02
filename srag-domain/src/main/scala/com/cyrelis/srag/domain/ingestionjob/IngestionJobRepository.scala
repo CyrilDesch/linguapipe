@@ -8,4 +8,5 @@ trait IngestionJobRepository[F[_]] {
   def update(job: IngestionJob): F[IngestionJob]
   def findById(jobId: UUID): F[Option[IngestionJob]]
   def listRunnable(now: Instant, limit: Int): F[List[IngestionJob]]
+  def listAll(): F[List[IngestionJob]]
 }

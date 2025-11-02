@@ -152,11 +152,9 @@ object HuggingFaceAdapterTest extends ZIOSpecDefault {
         } yield assertTrue(segments.isEmpty)
       },
       test("should chunk long text transcripts into multiple segments") {
-        // Create a long text that will be chunked
         val longText           = ("This is a sentence. " * 100) + "This is another sentence. " * 100
         val longTextTranscript = testTranscript.copy(text = longText)
 
-        // Mock multiple responses for multiple chunks
         val mockEmbedding = List.fill(384)(0.1f)
         val adapter       = new HuggingFaceAdapter(testConfig) {
           override protected def makeEmbeddingRequest(text: String): Task[Response[String]] = {

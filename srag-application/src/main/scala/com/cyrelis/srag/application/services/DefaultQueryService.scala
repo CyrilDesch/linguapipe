@@ -26,9 +26,13 @@ final class DefaultQueryService(
   transcriptRepository: TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]]
 ) extends QueryPort {
 
-  private val fusionPoolSize   = 200
-  private val rerankerPoolSize = 200
-  private val rrfK             = 60
+  private val fusionPoolSize         = 200
+  private val rerankerPoolSize       = 200
+  private val rrfK                   = 60
+  private val minCandidatesForRerank = 5   // Minimum candidates needed to use reranking
+  private val rerankerTopKRatio      = 0.2 // Keep results within 20% of top reranker score
+  private val minAcceptableGap       = 0.5 // Minimum score difference to consider results discriminated
+  private val minAbsoluteScore       = 0.3 // Minimum absolute score for top result (0.3 on 0-1 scale)
 
   override def retrieveContext(
     queryText: String,
@@ -39,8 +43,10 @@ final class DefaultQueryService(
       queryVector     <- embedder.embedQuery(queryText)
       semanticResults <- vectorStore.searchSimilar(queryVector, fusionPoolSize, filter)
       lexicalResults  <- lexicalStore.search(queryText, fusionPoolSize, filter)
-      fusedCandidates  = fuseCandidates(semanticResults, lexicalResults)
-      result          <- if (fusedCandidates.isEmpty) ZIO.succeed(List.empty[ContextSegment])
+
+      fusedCandidates = fuseCandidates(semanticResults, lexicalResults)
+
+      result <- if (fusedCandidates.isEmpty) ZIO.succeed(List.empty[ContextSegment])
                 else buildContextSegments(queryText, fusedCandidates, lexicalResults, limit)
     } yield result
 
@@ -98,18 +104,19 @@ final class DefaultQueryService(
                                  (RerankerCandidate(key._1, key._2, chunkText), fusedScore)
                                }
                              }
-      fallback = candidatesWithScores.sortBy { case (_, fusedScore) => -fusedScore }
-                   .take(limit)
-                   .map { case (candidate, fusedScore) =>
-                     ContextSegment(
-                       transcriptId = candidate.transcriptId,
-                       segmentIndex = candidate.segmentIndex,
-                       text = candidate.text,
-                       score = fusedScore
-                     )
-                   }
-      finalResult <- if (candidatesWithScores.isEmpty) ZIO.succeed(fallback)
-                     else {
+      fusionResults = candidatesWithScores.sortBy { case (_, fusedScore) => -fusedScore }
+                        .take(limit)
+                        .map { case (candidate, fusedScore) =>
+                          ContextSegment(
+                            transcriptId = candidate.transcriptId,
+                            segmentIndex = candidate.segmentIndex,
+                            text = candidate.text,
+                            score = fusedScore
+                          )
+                        }
+      finalResult <- if (candidatesWithScores.size < minCandidatesForRerank) {
+                       ZIO.succeed(fusionResults)
+                     } else {
                        val candidatesOnly = candidatesWithScores.map(_._1)
                        val rerankTopK     = math.min(rerankerPoolSize, candidatesOnly.size)
                        reranker
@@ -117,19 +124,51 @@ final class DefaultQueryService(
                          .either
                          .flatMap {
                            case Right(reranked) if reranked.nonEmpty =>
-                             ZIO.succeed(
-                               reranked
-                                 .sortBy(res => -res.score)
-                                 .take(limit)
-                                 .map(toContextSegment)
-                             )
-                           case Right(_)    => ZIO.succeed(fallback)
+                             filterRerankedResults(reranked, limit)
+                           case Right(_) =>
+                             ZIO.succeed(fusionResults)
                            case Left(error) =>
-                             ZIO.logWarning(s"Reranker failed: ${error.message}") *> ZIO.succeed(fallback)
+                             ZIO.logWarning(s"Reranker failed: ${error.message}, using fusion scores") *>
+                               ZIO.succeed(fusionResults)
                          }
                      }
     } yield finalResult
   }
+
+  private def filterRerankedResults(
+    reranked: List[RerankerResult],
+    limit: Int
+  ): ZIO[Any, PipelineError, List[ContextSegment]] =
+    if (reranked.isEmpty) {
+      ZIO.succeed(List.empty)
+    } else {
+      val sorted     = reranked.sortBy(res => -res.score)
+      val scores     = sorted.map(_.score)
+      val topScore   = scores.head
+      val worstScore = scores.last
+      val gap        = topScore - worstScore
+
+      if (topScore < minAbsoluteScore) {
+        ZIO.logWarning(s"Top reranker score too low ($topScore < $minAbsoluteScore), returning empty") *>
+          ZIO.succeed(List.empty)
+      } else if (gap < minAcceptableGap) {
+        ZIO.logWarning(s"Reranker gap too small ($gap < $minAcceptableGap), returning empty") *>
+          ZIO.succeed(List.empty)
+      } else {
+        val threshold = topScore - (gap * rerankerTopKRatio)
+        val filtered  = sorted
+          .filter(_.score >= threshold)
+          .take(limit)
+          .map(toContextSegment)
+
+        if (filtered.isEmpty) {
+          ZIO.logWarning(s"All results filtered out (threshold=$threshold)") *>
+            ZIO.succeed(List.empty)
+        } else {
+          ZIO.succeed(filtered)
+        }
+      }
+    }
 
   private def buildChunkIndex(
     transcripts: List[com.cyrelis.srag.domain.transcript.Transcript]
@@ -150,8 +189,6 @@ final class DefaultQueryService(
 
 object DefaultQueryService {
 
-  // Helper to chunk text (matching the logic used during embedding)
-  // In production, this chunking logic should be shared between embedder and this service
   object TextChunker {
     def chunkText(text: String, chunkSize: Int): List[String] = {
       val words = text.split("\\s+").toList

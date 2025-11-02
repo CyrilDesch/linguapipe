@@ -50,7 +50,7 @@ object ConfigLoader {
         } else true,
         maxRetries = if (retryConfig.hasPath("max-retries")) {
           retryConfig.getInt("max-retries")
-        } else 3,
+        } else 2,
         initialDelayMs = if (retryConfig.hasPath("initial-delay-ms")) {
           retryConfig.getLong("initial-delay-ms")
         } else 100,
@@ -64,7 +64,7 @@ object ConfigLoader {
     } else {
       RetryConfig(
         enabled = true,
-        maxRetries = 3,
+        maxRetries = 2,
         initialDelayMs = 100,
         maxDelayMs = 5000,
         backoffFactor = 2.0
@@ -122,7 +122,7 @@ object ConfigLoader {
     if (config.hasPath(jobPath)) {
       val jobConfig = config.getConfig(jobPath)
       JobProcessingConfig(
-        maxAttempts = if (jobConfig.hasPath("max-attempts")) jobConfig.getInt("max-attempts") else 5,
+        maxAttempts = if (jobConfig.hasPath("max-attempts")) jobConfig.getInt("max-attempts") else 3,
         pollInterval = FiniteDuration(
           if (jobConfig.hasPath("poll-interval-ms")) jobConfig.getLong("poll-interval-ms") else 1000L,
           MILLISECONDS
@@ -140,7 +140,7 @@ object ConfigLoader {
       )
     } else {
       JobProcessingConfig(
-        maxAttempts = 5,
+        maxAttempts = 3,
         pollInterval = FiniteDuration(1000L, MILLISECONDS),
         batchSize = 5,
         initialRetryDelay = FiniteDuration(2000L, MILLISECONDS),
@@ -153,7 +153,10 @@ object ConfigLoader {
   private def loadApiConfig(config: Config): ApiConfig =
     ApiConfig(
       host = config.getString("api.host"),
-      port = config.getInt("api.port")
+      port = config.getInt("api.port"),
+      maxBodySizeBytes = if (config.hasPath("api.max-body-size-bytes")) {
+        config.getLong("api.max-body-size-bytes")
+      } else 104857600L // Default 100MB
     )
 
   private def loadAdaptersConfig(config: Config): AdaptersConfig =
@@ -329,7 +332,10 @@ object ConfigLoader {
         val restConfig = config.getConfig("rest")
         ApiAdapterConfig.REST(
           host = restConfig.getString("host"),
-          port = restConfig.getInt("port")
+          port = restConfig.getInt("port"),
+          maxBodySizeBytes = if (restConfig.hasPath("max-body-size-bytes")) {
+            restConfig.getLong("max-body-size-bytes")
+          } else 104857600L // Default 100MB
         )
       case "grpc" =>
         val grpcConfig = config.getConfig("grpc")

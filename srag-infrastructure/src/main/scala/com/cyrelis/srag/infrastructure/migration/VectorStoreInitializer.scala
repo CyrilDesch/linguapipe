@@ -82,9 +82,7 @@ object VectorStoreInitializer {
     private def createCollection(): Task[Unit] =
       ZIO.scoped {
         for {
-          backend <- HttpClientZioBackend.scopedUsingClient(httpClient)
-          // Use a standard embedding dimension (384 for all-MiniLM-L6-v2)
-          // In production, this should be configurable based on the embedder model
+          backend         <- HttpClientZioBackend.scopedUsingClient(httpClient)
           collectionConfig = QdrantCollectionCreateRequest(
                                QdrantVectorsCreateConfig(size = 384, distance = "Cosine")
                              )
@@ -103,7 +101,6 @@ object VectorStoreInitializer {
             if (response.code.isSuccess) {
               ZIO.logInfo(s"Created Qdrant collection '${config.collection}'")
             } else if (response.code.code == 400) {
-              // Collection might already exist (race condition) or invalid request
               ZIO.logWarning(
                 s"Failed to create Qdrant collection (status ${response.code.code}): ${response.body}. It may already exist."
               )

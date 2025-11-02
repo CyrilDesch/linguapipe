@@ -20,7 +20,6 @@ import zio.*
 
 object ModuleWiring {
 
-  // Individual adapter layers
   val transcriberLayer: ZLayer[RuntimeConfig, Nothing, TranscriberPort] =
     ZLayer {
       for {
@@ -140,7 +139,6 @@ object ModuleWiring {
       } yield gateway
     }
 
-  // Use case layers
   val ingestServiceLayer: ZLayer[
     BlobStorePort & IngestionJobRepository[[X] =>> ZIO[Any, PipelineError, X]] & JobQueuePort & RuntimeConfig,
     Nothing,

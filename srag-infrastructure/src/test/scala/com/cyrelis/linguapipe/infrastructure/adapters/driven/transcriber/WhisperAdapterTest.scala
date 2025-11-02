@@ -111,7 +111,7 @@ object WhisperAdapterTest extends ZIOSpecDefault {
     suite("transcription scenarios")(
       test("should successfully transcribe audio and return transcript") {
         val mockResponse = WhisperResponse(
-          text = "Bonjour, ceci est un test de transcription.",
+          text = "Hello, this is a transcription test.",
           language = None
         )
         val adapter = new WhisperAdapterTestDouble(testConfig, ZIO.succeed(mockResponse))
@@ -121,7 +121,7 @@ object WhisperAdapterTest extends ZIOSpecDefault {
         for {
           transcript <- adapter.transcribe(audioBytes, "audio/wav", "test.wav")
         } yield assertTrue(
-          transcript.text == "Bonjour, ceci est un test de transcription." &&
+          transcript.text == "Hello, this is a transcription test." &&
             transcript.metadata("provider") == "whisper" &&
             transcript.metadata("model") == "whisper-1"
         )

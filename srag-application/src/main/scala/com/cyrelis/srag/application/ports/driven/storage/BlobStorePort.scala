@@ -1,11 +1,20 @@
 package com.cyrelis.srag.application.ports.driven.storage
 
+import java.time.Instant
 import java.util.UUID
 
 import com.cyrelis.srag.application.errors.PipelineError
 import com.cyrelis.srag.application.types.HealthStatus
 import zio.*
 import zio.stream.ZStream
+
+final case class BlobInfo(
+  key: String,
+  filename: Option[String],
+  contentType: Option[String],
+  size: Option[Long],
+  created: Option[Instant]
+)
 
 trait BlobStorePort {
   def storeAudio(
@@ -20,5 +29,6 @@ trait BlobStorePort {
   def getBlobContentType(blobKey: String): ZIO[Any, PipelineError, Option[String]]
   def deleteBlob(blobKey: String): ZIO[Any, PipelineError, Unit]
   def storeDocument(jobId: UUID, documentContent: String, mediaType: String): ZIO[Any, PipelineError, String]
+  def listAllBlobs(): ZIO[Any, PipelineError, List[BlobInfo]]
   def healthCheck(): Task[HealthStatus]
 }

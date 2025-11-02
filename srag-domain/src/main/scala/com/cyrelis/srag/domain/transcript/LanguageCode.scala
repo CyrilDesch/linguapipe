@@ -23,7 +23,6 @@ object LanguageCode:
   extension (lang: LanguageCode) def value: String = lang
 
   def allSupportedLanguages: List[LanguageCode] = List(
-    // Major European Languages
     English,
     French,
     Spanish,
@@ -64,8 +63,6 @@ object LanguageCode:
     Maltese,
     Luxembourgish,
     Faroese,
-
-    // Asian Languages
     Chinese,
     Japanese,
     Korean,
@@ -103,8 +100,6 @@ object LanguageCode:
     Uyghur,
     Tibetan,
     Dzongkha,
-
-    // Middle Eastern & Central Asian Languages
     Arabic,
     Persian,
     Pashto,
@@ -123,15 +118,11 @@ object LanguageCode:
     Shona,
     Tsonga,
     Malagasy,
-
-    // Pacific & Oceanic Languages
     Maori,
     Samoan,
     Tongan,
     Fijian,
     Tahitian,
-
-    // Other Languages
     Armenian,
     Georgian,
     Azerbaijani,
@@ -143,7 +134,6 @@ object LanguageCode:
     Latin
   )
 
-  // Major European Languages
   val English: LanguageCode       = "en"
   val French: LanguageCode        = "fr"
   val Spanish: LanguageCode       = "es"
@@ -185,7 +175,6 @@ object LanguageCode:
   val Luxembourgish: LanguageCode = "lb"
   val Faroese: LanguageCode       = "fo"
 
-  // Asian Languages
   val Chinese: LanguageCode    = "zh"
   val Japanese: LanguageCode   = "ja"
   val Korean: LanguageCode     = "ko"
@@ -224,7 +213,6 @@ object LanguageCode:
   val Tibetan: LanguageCode    = "bo"
   val Dzongkha: LanguageCode   = "dz"
 
-  // Middle Eastern & Central Asian Languages
   val Arabic: LanguageCode    = "ar"
   val Persian: LanguageCode   = "fa"
   val Pashto: LanguageCode    = "ps"
@@ -244,14 +232,12 @@ object LanguageCode:
   val Tsonga: LanguageCode    = "ts"
   val Malagasy: LanguageCode  = "mg"
 
-  // Pacific & Oceanic Languages
   val Maori: LanguageCode    = "mi"
   val Samoan: LanguageCode   = "sm"
   val Tongan: LanguageCode   = "to"
   val Fijian: LanguageCode   = "fj"
   val Tahitian: LanguageCode = "ty"
 
-  // Other Languages
   val Armenian: LanguageCode      = "hy"
   val Georgian: LanguageCode      = "ka"
   val Azerbaijani: LanguageCode   = "az"

@@ -1,5 +1,7 @@
 package com.cyrelis.srag.infrastructure.adapters.driving.gateway.rest
 
+import java.nio.charset.StandardCharsets
+
 import com.cyrelis.srag.application.errors.PipelineError
 import com.cyrelis.srag.application.ports.driven.embedding.EmbedderPort
 import com.cyrelis.srag.application.ports.driven.parser.DocumentParserPort
@@ -10,8 +12,16 @@ import com.cyrelis.srag.application.ports.driving.{HealthCheckPort, IngestPort, 
 import com.cyrelis.srag.domain.ingestionjob.IngestionJobRepository
 import com.cyrelis.srag.domain.transcript.TranscriptRepository
 import com.cyrelis.srag.infrastructure.adapters.driving.Gateway
-import com.cyrelis.srag.infrastructure.adapters.driving.gateway.rest.endpoint.{MainEndpoints, TestEndpoints}
-import com.cyrelis.srag.infrastructure.adapters.driving.gateway.rest.handler.{MainHandlers, TestHandlers}
+import com.cyrelis.srag.infrastructure.adapters.driving.gateway.rest.endpoint.{
+  MainEndpoints,
+  TestEndpoints,
+  TestUiEndpoints
+}
+import com.cyrelis.srag.infrastructure.adapters.driving.gateway.rest.handler.{
+  MainHandlers,
+  TestHandlers,
+  TestUiHandlers
+}
 import sttp.tapir.server.ziohttp.ZioHttpInterpreter
 import sttp.tapir.swagger.SwaggerUIOptions
 import sttp.tapir.swagger.bundle.SwaggerInterpreter
@@ -21,7 +31,8 @@ import zio.http.*
 
 final class IngestRestGateway(
   host: String,
-  port: Int
+  port: Int,
+  maxBodySizeBytes: Long
 ) extends Gateway {
 
   type TestEnv = TranscriberPort & EmbedderPort & BlobStorePort & DocumentParserPort &
@@ -30,10 +41,12 @@ final class IngestRestGateway(
 
   private def buildRoutes: ZIO[IngestPort & HealthCheckPort & QueryPort & TestEnv, Nothing, Routes[Any, Response]] =
     for {
-      mainRoutes <- buildMainRoutes
-      testRoutes <- buildTestRoutes
-      docsRoutes <- buildDocsRoutes
-    } yield docsRoutes ++ mainRoutes ++ testRoutes
+      mainRoutes   <- buildMainRoutes
+      testRoutes   <- buildTestRoutes
+      testUiRoutes <- buildTestUiRoutes
+      docsRoutes   <- buildDocsRoutes
+      staticRoutes <- buildStaticRoutes
+    } yield docsRoutes ++ mainRoutes ++ testRoutes ++ testUiRoutes ++ staticRoutes
 
   private def buildMainRoutes: ZIO[
     IngestPort & HealthCheckPort & QueryPort & BlobStorePort & TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]],
@@ -128,16 +141,63 @@ final class IngestRestGateway(
       )
     )
 
+  private def buildTestUiRoutes: ZIO[TestEnv, Nothing, Routes[Any, Response]] =
+    for {
+      jobRepo      <- ZIO.service[IngestionJobRepository[[X] =>> ZIO[Any, PipelineError, X]]]
+      vectorStore  <- ZIO.service[VectorStorePort]
+      blobStore    <- ZIO.service[BlobStorePort]
+      lexicalStore <- ZIO.service[LexicalStorePort]
+    } yield ZioHttpInterpreter().toHttp(
+      List(
+        TestUiEndpoints.listAllJobs.zServerLogic(_ =>
+          TestUiHandlers.handleListAllJobs.provide(ZLayer.succeed(jobRepo))
+        ),
+        TestUiEndpoints.listAllVectors.zServerLogic(_ =>
+          TestUiHandlers.handleListAllVectors.provide(ZLayer.succeed(vectorStore))
+        ),
+        TestUiEndpoints.listAllBlobs.zServerLogic(_ =>
+          TestUiHandlers.handleListAllBlobs.provide(ZLayer.succeed(blobStore))
+        ),
+        TestUiEndpoints.listAllOpenSearch.zServerLogic(_ =>
+          TestUiHandlers.handleListAllOpenSearch.provide(ZLayer.succeed(lexicalStore))
+        )
+      )
+    )
+
   private def buildDocsRoutes: ZIO[Any, Nothing, Routes[Any, Response]] =
     ZIO.succeed {
       val docsEndpoints = SwaggerInterpreter(
         swaggerUIOptions = SwaggerUIOptions.default.pathPrefix(List("docs"))
       ).fromEndpoints[Task](
-        MainEndpoints.all ++ TestEndpoints.all,
+        MainEndpoints.all ++ TestEndpoints.all ++ TestUiEndpoints.all,
         "SRAG API",
         "v1"
       )
       ZioHttpInterpreter().toHttp(docsEndpoints)
+    }
+
+  private def buildStaticRoutes: ZIO[Any, Nothing, Routes[Any, Response]] =
+    ZIO.succeed {
+      val htmlHandler = Handler.fromZIO {
+        ZIO.attemptBlocking {
+          val stream = getClass.getClassLoader.getResourceAsStream("static/index.html")
+          if (stream == null) throw new RuntimeException("static/index.html not found")
+          try new String(stream.readAllBytes(), StandardCharsets.UTF_8)
+          finally stream.close()
+        }.map { html =>
+          Response(
+            status = Status.Ok,
+            headers = Headers(Header.ContentType(MediaType.text.html)),
+            body = Body.fromString(html)
+          )
+        }
+          .catchAll(_ => ZIO.succeed(Response.text("Admin UI not available").status(Status.NotFound)))
+      }
+
+      Routes(
+        Method.GET / ""   -> htmlHandler,
+        Method.GET / "ui" -> htmlHandler
+      )
     }
 
   def startWithDeps: ZIO[IngestPort & HealthCheckPort & QueryPort & TestEnv, Throwable, Unit] =
@@ -145,13 +205,22 @@ final class IngestRestGateway(
       routes <- buildRoutes
       _      <- ZIO.logInfo(s"REST server will listen on $host:$port")
       _      <- {
-        val url  = s"http://$host:$port/docs"
-        val link = s"\u001B]8;;$url\u0007$url\u001B]8;;\u0007"
-        ZIO.logInfo(s"REST server docs will be available at $link")
+        val docsUrl  = s"http://$host:$port/docs"
+        val docsLink = s"\u001B]8;;$docsUrl\u0007$docsUrl\u001B]8;;\u0007"
+        ZIO.logInfo(s"REST server docs will be available at $docsLink")
+      }
+      _ <- {
+        val uiUrl  = s"http://$host:$port/ui"
+        val uiLink = s"\u001B]8;;$uiUrl\u0007$uiUrl\u001B]8;;\u0007"
+        ZIO.logInfo(s"Admin UI will be available at $uiLink")
       }
       serverFiber <- Server
                        .serve(routes)
-                       .provide(Server.defaultWithPort(port))
+                       .provide(
+                         Server.defaultWith(
+                           _.port(port).disableRequestStreaming(maxBodySizeBytes.toInt)
+                         )
+                       )
                        .fork
       _ <- serverFiber.await
     } yield ()

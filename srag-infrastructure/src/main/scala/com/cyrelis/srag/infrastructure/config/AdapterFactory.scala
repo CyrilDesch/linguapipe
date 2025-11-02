@@ -104,8 +104,8 @@ object AdapterFactory {
 
   def createGateway(config: ApiAdapterConfig): Gateway =
     config match {
-      case ApiAdapterConfig.REST(host, port) =>
-        new IngestRestGateway(host, port)
+      case ApiAdapterConfig.REST(host, port, maxBodySizeBytes) =>
+        new IngestRestGateway(host, port, maxBodySizeBytes)
       case ApiAdapterConfig.GRPC(host, port) =>
         throw new UnsupportedOperationException("gRPC gateway not yet implemented")
     }

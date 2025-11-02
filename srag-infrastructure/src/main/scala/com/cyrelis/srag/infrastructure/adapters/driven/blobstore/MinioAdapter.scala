@@ -7,7 +7,7 @@ import java.util.UUID
 import scala.jdk.CollectionConverters.*
 
 import com.cyrelis.srag.application.errors.PipelineError
-import com.cyrelis.srag.application.ports.driven.storage.BlobStorePort
+import com.cyrelis.srag.application.ports.driven.storage.{BlobInfo, BlobStorePort}
 import com.cyrelis.srag.application.types.HealthStatus
 import com.cyrelis.srag.infrastructure.resilience.ErrorMapper
 import io.minio.*
@@ -79,11 +79,8 @@ final class MinioAdapter(host: String, port: Int, accessKey: String, secretKey: 
           StatObjectArgs.builder().bucket(bucket).`object`(blobKey).build()
         )
         val metadata = statObjectResponse.userMetadata()
-        // MinIO/S3 may normalize metadata keys to lowercase
-        // Try exact key first, then search case-insensitively
         val exactKey = "x-amz-meta-original-filename"
         Option(metadata.get(exactKey)).orElse {
-          // Search for key containing "original-filename" case-insensitively
           metadata.asScala.collectFirst {
             case (k, v) if k.toLowerCase.contains("original-filename") => v
           }
@@ -98,16 +95,12 @@ final class MinioAdapter(host: String, port: Int, accessKey: String, secretKey: 
           StatObjectArgs.builder().bucket(bucket).`object`(blobKey).build()
         )
         val metadata = statObjectResponse.userMetadata()
-        // MinIO/S3 may normalize metadata keys to lowercase
-        // Try exact key first, then search case-insensitively
         val exactKey = "x-amz-meta-content-type"
         Option(metadata.get(exactKey)).orElse {
-          // Search for key containing "content-type" case-insensitively
           metadata.asScala.collectFirst {
             case (k, v) if k.toLowerCase.contains("content-type") => v
           }
         }.orElse {
-          // Fallback to the object's Content-Type if metadata not found
           Option(statObjectResponse.contentType())
         }
       }
@@ -116,6 +109,52 @@ final class MinioAdapter(host: String, port: Int, accessKey: String, secretKey: 
   override def deleteBlob(blobKey: String): ZIO[Any, PipelineError, Unit] =
     ErrorMapper.mapBlobStoreError {
       ZIO.attempt(minioClient.removeObject(RemoveObjectArgs.builder().bucket(bucket).`object`(blobKey).build())).unit
+    }
+
+  override def listAllBlobs(): ZIO[Any, PipelineError, List[BlobInfo]] =
+    ErrorMapper.mapBlobStoreError {
+      ZIO.attempt {
+        val objects = minioClient.listObjects(
+          ListObjectsArgs.builder().bucket(bucket).recursive(true).build()
+        )
+        objects.asScala.toList.flatMap { resultItem =>
+          try {
+            val item       = resultItem.get()
+            val objectName = item.objectName()
+            val stat       = minioClient.statObject(
+              StatObjectArgs.builder().bucket(bucket).`object`(objectName).build()
+            )
+            val metadata = stat.userMetadata()
+            val filename = {
+              val exactKey = "x-amz-meta-original-filename"
+              Option(metadata.get(exactKey)).orElse {
+                metadata.asScala.collectFirst {
+                  case (k, v) if k.toLowerCase.contains("original-filename") => v
+                }
+              }
+            }
+            val contentType = {
+              val exactKey = "x-amz-meta-content-type"
+              Option(metadata.get(exactKey)).orElse {
+                metadata.asScala.collectFirst {
+                  case (k, v) if k.toLowerCase.contains("content-type") => v
+                }
+              }.orElse(Option(stat.contentType()))
+            }
+            Some(
+              BlobInfo(
+                key = objectName,
+                filename = filename,
+                contentType = contentType,
+                size = Option(stat.size()),
+                created = Option(stat.lastModified()).map(_.toInstant)
+              )
+            )
+          } catch {
+            case _: Throwable => None
+          }
+        }
+      }
     }
 
   override def storeDocument(jobId: UUID, documentContent: String, mediaType: String): ZIO[Any, PipelineError, String] =

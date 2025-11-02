@@ -68,4 +68,13 @@ final class PostgresJobRepository(
 
       ctx.run(runnableQuery).map(_.map(IngestionJobRow.toDomain))
     }
+
+  override def listAll(): ZIO[Any, PipelineError, List[IngestionJob]] =
+    ErrorMapper.mapDatabaseError {
+      inline def allQuery = quote {
+        jobs.sortBy(_.createdAt)(using Ord.desc)
+      }
+
+      ctx.run(allQuery).map(_.map(IngestionJobRow.toDomain))
+    }
 }
