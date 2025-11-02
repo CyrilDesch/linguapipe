@@ -73,4 +73,3 @@ final case class AdminOpenSearchResponse(
 object AdminOpenSearchResponse {
   given Codec[AdminOpenSearchResponse] = deriveCodec
 }
-

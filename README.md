@@ -32,15 +32,17 @@ SRAG is designed with **Hexagonal Architecture** principles, making it easy to s
 - [x] Implement a Blob Store Adapter
 - [x] Implement a Job Queue Adapter
 - [ ] Allow text and documents (pdf, docx, ...) ingestion
+- [ ] Implement Deep Document Understanding
 - [ ] Implement MCP server
 - [ ] Implement image to text
 - [ ] Implement gRPC Gateway
 - [x] Implement Retry and Timeout Services
 - [x] Implement Reranker
 - [x] Implement Lexical Search (BM25)
-- [ ] Implement Deep Document Understanding
 - [ ] Add daily cleanup job: delete orphan blobs and stale DB jobs (>24h)
 - [ ] Migrations should use a datasource instead of hardcoded
+- [ ] Implement better test of infrastructure modules
+- [ ] Implement test of application use cases
 - [ ] Build a documentation website
 
 ## 📋 Prerequisites
