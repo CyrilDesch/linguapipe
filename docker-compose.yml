@@ -6,13 +6,13 @@ services:
     volumes:
       - "postgres_data:/var/lib/postgresql/data"
     environment:
-      - "POSTGRES_USER=linguapipe"
-      - "POSTGRES_PASSWORD=linguapipe"
-      - "POSTGRES_DB=linguapipe"
+      - "POSTGRES_USER=srag"
+      - "POSTGRES_PASSWORD=srag"
+      - "POSTGRES_DB=srag"
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U linguapipe"]
+      test: ["CMD-SHELL", "pg_isready -U srag"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -40,7 +40,7 @@ services:
     ports:
       - "9001:9000"
     environment:
-      - "ASR_MODEL=tiny"
+      - "ASR_MODEL=base"
       - "ASR_ENGINE=faster_whisper"
       - "ASR_DEVICE=cpu"
     volumes:
@@ -81,6 +81,27 @@ services:
       retries: 3
       start_period: 20s
 
+  # Cross-encoder reranker service
+  reranker:
+    image: semitechnologies/reranker-transformers:cross-encoder-ms-marco-MiniLM-L-6-v2
+    restart: always
+    ports:
+      - "8083:8080"
+    environment:
+      - "ENABLE_CUDA=0"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8080/.well-known/ready')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
   # MinIO (S3-compatible object storage)
   minio:
     image: minio/minio:latest
@@ -101,8 +122,57 @@ services:
       retries: 3
       start_period: 15s
 
+  # Redis
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - "redis_data:/data"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # OpenSearch for BM25/lexical search
+  opensearch:
+    image: opensearchproject/opensearch:2.14.0
+    restart: always
+    environment:
+      - "discovery.type=single-node"
+      - "DISABLE_SECURITY_PLUGIN=true"
+      - "OPENSEARCH_INITIAL_ADMIN_PASSWORD=srag"
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - "9200:9200"
+      - "9600:9600"
+    volumes:
+      - "opensearch_data:/usr/share/opensearch/data"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'curl -s http://localhost:9200/_cluster/health | grep -qE ''"status":"(green|yellow)"''',
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
 volumes:
   postgres_data:
   qdrant_data:
   whisper_models:
   minio_data:
+  redis_data:
+  opensearch_data:

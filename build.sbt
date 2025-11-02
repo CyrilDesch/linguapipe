@@ -7,7 +7,7 @@ import Dependencies.{
 
 val scala3 = "3.7.3"
 
-name := "com.cyrelis.linguapipe"
+name := "com.cyrelis.srag"
 
 inThisBuild(
   List(
@@ -25,46 +25,48 @@ inThisBuild(
 //      "-Xfatal-warnings"
     ),
     run / fork := true,
-    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework")
+    testFrameworks += new TestFramework("zio.test.sbt.ZTestFramework"),
+    // Help Metals index Java libraries by ensuring proper classpath export
+    exportJars := true
   )
 )
 
 lazy val root = project
   .in(file("."))
   .aggregate(
-    `linguapipe-domain`,
-    `linguapipe-application`,
-    `linguapipe-infrastructure`
+    `srag-domain`,
+    `srag-application`,
+    `srag-infrastructure`
   )
   .disablePlugins(RevolverPlugin)
   .settings(
     publish / skip := true
   )
 
-lazy val `linguapipe-domain` = project
-  .in(file("linguapipe-domain"))
+lazy val `srag-domain` = project
+  .in(file("srag-domain"))
   .disablePlugins(RevolverPlugin)
   .settings(
     domainLibraryDependencies,
     publish / skip := true
   )
 
-lazy val `linguapipe-application` = project
-  .in(file("linguapipe-application"))
+lazy val `srag-application` = project
+  .in(file("srag-application"))
   .disablePlugins(RevolverPlugin)
-  .dependsOn(`linguapipe-domain`)
+  .dependsOn(`srag-domain`)
   .settings(
     applicationLibraryDependencies,
     publish / skip := true
   )
 
-lazy val `linguapipe-infrastructure` = project
-  .in(file("linguapipe-infrastructure"))
+lazy val `srag-infrastructure` = project
+  .in(file("srag-infrastructure"))
   .enablePlugins(JavaAppPackaging, DockerPlugin, AshScriptPlugin, RevolverPlugin)
-  .dependsOn(`linguapipe-application`)
+  .dependsOn(`srag-application`)
   .settings(
     fork      := true,
-    mainClass := Some("com.cyrelis.linguapipe.infrastructure.Main"),
+    mainClass := Some("com.cyrelis.srag.infrastructure.Main"),
     infrastructureLibraryDependencies,
     testingLibraryDependencies,
     publish / skip := true
@@ -81,7 +83,7 @@ lazy val dockerSettings = {
   Seq(
     Docker / maintainer     := "Cyril Deschamps",
     Docker / dockerUsername := Some("cyril-deschamps"),
-    Docker / packageName    := "linguapipe",
+    Docker / packageName    := "srag",
     dockerBaseImage         := "azul/zulu-openjdk-alpine:21-jre-headless",
     dockerRepository        := Some("ghcr.io"),
     dockerUpdateLatest      := true,

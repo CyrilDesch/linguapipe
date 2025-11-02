@@ -1,9 +1,9 @@
 ---
 alwaysApply: true
-description: LinguaPipe hexagonal architecture and module structure
+description: SRAG hexagonal architecture and module structure
 ---
 
-# LinguaPipe Hexagonal Architecture
+# SRAG Hexagonal Architecture
 
 ## Module Structure and Dependencies
 

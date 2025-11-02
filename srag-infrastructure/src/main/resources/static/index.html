@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SRAG Admin - Data Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 16px;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab:hover {
+            color: #333;
+        }
+
+        .tab.active {
+            color: #0066cc;
+            border-bottom-color: #0066cc;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: none;
+        }
+
+        .panel.active {
+            display: block;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #0052a3;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 3px solid #0066cc;
+        }
+
+        .stat-card h3 {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #0066cc;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .data-table th {
+            background: #f5f5f5;
+            font-weight: 600;
+            color: #333;
+            position: sticky;
+            top: 0;
+        }
+
+        .data-table tr:hover {
+            background: #f9f9f9;
+        }
+
+        .result-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            border-left: 3px solid #0066cc;
+        }
+
+        .result-item h3 {
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .result-item pre {
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+            margin-top: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .error {
+            color: #d32f2f;
+            background: #ffebee;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+
+        .loading {
+            color: #666;
+            font-style: italic;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .metadata {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 10px;
+        }
+
+        .metadata-tag {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        .json-view {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-success {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .badge-error {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+
+        .badge-warning {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SRAG Admin - Data Viewer (Read-Only)</h1>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('transcripts')">Transcripts (SQL)</button>
+            <button class="tab" onclick="showTab('jobs')">Jobs (SQL)</button>
+            <button class="tab" onclick="showTab('vectors')">Vectors (Qdrant)</button>
+            <button class="tab" onclick="showTab('blobs')">Blobs (MinIO)</button>
+            <button class="tab" onclick="showTab('opensearch')">OpenSearch</button>
+        </div>
+
+        <!-- Transcripts Panel -->
+        <div id="transcripts" class="panel active">
+            <div class="panel-header">
+                <h2>Transcripts (Database)</h2>
+                <button onclick="loadTranscripts()">Refresh</button>
+            </div>
+            <div id="transcripts-results"></div>
+        </div>
+
+        <!-- Jobs Panel -->
+        <div id="jobs" class="panel">
+            <div class="panel-header">
+                <h2>Ingestion Jobs (Database)</h2>
+                <button onclick="loadJobs()">Refresh</button>
+            </div>
+            <div id="jobs-results"></div>
+        </div>
+
+        <!-- Vectors Panel -->
+        <div id="vectors" class="panel">
+            <div class="panel-header">
+                <h2>Vectors (Qdrant)</h2>
+                <button onclick="loadVectors()">Refresh</button>
+            </div>
+            <div id="vectors-results"></div>
+        </div>
+
+        <!-- Blobs Panel -->
+        <div id="blobs" class="panel">
+            <div class="panel-header">
+                <h2>Blobs (MinIO)</h2>
+                <button onclick="loadBlobs()">Refresh</button>
+            </div>
+            <div id="blobs-results"></div>
+        </div>
+
+        <!-- OpenSearch Panel -->
+        <div id="opensearch" class="panel">
+            <div class="panel-header">
+                <h2>OpenSearch Documents</h2>
+                <button onclick="loadOpenSearch()">Refresh</button>
+            </div>
+            <div id="opensearch-results"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+
+        function showTab(tabName) {
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        async function apiCall(endpoint, options = {}) {
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    ...options,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers
+                    }
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+
+                return await response.json();
+            } catch (error) {
+                throw error;
+            }
+        }
+
+        async function loadTranscripts() {
+            const resultsDiv = document.getElementById('transcripts-results');
+            resultsDiv.innerHTML = '<div class="loading">Loading transcripts...</div>';
+
+            try {
+                const transcripts = await apiCall('/api/v1/transcripts');
+                
+                let html = `<div class="stat-card"><h3>Total Transcripts</h3><div class="value">${transcripts.length}</div></div>`;
+
+                if (transcripts.length === 0) {
+                    html += '<div class="result-item">No transcripts found.</div>';
+                } else {
+                    html += '<table class="data-table">';
+                    html += '<thead><tr><th>ID</th><th>Created</th><th>Source</th><th>Language</th><th>Text Preview</th><th>Metadata</th></tr></thead><tbody>';
+                    
+                    transcripts.forEach(t => {
+                        const textPreview = t.text.length > 100 ? t.text.substring(0, 100) + '...' : t.text;
+                        html += `<tr>
+                            <td><code>${t.id.substring(0, 8)}...</code></td>
+                            <td>${new Date(t.createdAt).toLocaleString()}</td>
+                            <td>${t.source}</td>
+                            <td>${t.language || '-'}</td>
+                            <td><pre style="margin:0;max-width:300px;overflow:hidden;text-overflow:ellipsis;">${textPreview}</pre></td>
+                            <td>${Object.keys(t.metadata).length > 0 ? 
+                                Object.entries(t.metadata).map(([k, v]) => 
+                                    `<span class="metadata-tag">${k}: ${v}</span>`
+                                ).join(' ') : '-'
+                            }</td>
+                        </tr>`;
+                    });
+                    html += '</tbody></table>';
+                }
+
+                resultsDiv.innerHTML = html;
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function loadJobs() {
+            const resultsDiv = document.getElementById('jobs-results');
+            resultsDiv.innerHTML = '<div class="loading">Loading jobs...</div>';
+
+            try {
+                const jobs = await apiCall('/test-ui/jobs');
+                
+                let html = `<div class="stat-card"><h3>Total Jobs</h3><div class="value">${jobs.length}</div></div>`;
+
+                if (jobs.length === 0) {
+                    html += '<div class="result-item">No jobs found.</div>';
+                } else {
+                    html += '<table class="data-table">';
+                    html += '<thead><tr><th>ID</th><th>Status</th><th>Attempt</th><th>Transcript ID</th><th>Source</th><th>Created</th><th>Updated</th><th>Error</th><th>Metadata</th></tr></thead><tbody>';
+                    
+                    jobs.forEach(j => {
+                        const statusClass = j.status === 'Success' ? 'badge-success' : 
+                                          j.status === 'Failed' ? 'badge-error' : 'badge-warning';
+                        html += `<tr>
+                            <td><code>${j.jobId.substring(0, 8)}...</code></td>
+                            <td><span class="badge ${statusClass}">${j.status}</span></td>
+                            <td>${j.attempt}/${j.maxAttempts}</td>
+                            <td>${j.transcriptId ? `<code>${j.transcriptId.substring(0, 8)}...</code>` : '-'}</td>
+                            <td>${j.source || '-'}</td>
+                            <td>${new Date(j.createdAt).toLocaleString()}</td>
+                            <td>${new Date(j.updatedAt).toLocaleString()}</td>
+                            <td>${j.errorMessage ? `<span style="color:#d32f2f;">${j.errorMessage.substring(0, 50)}...</span>` : '-'}</td>
+                            <td>${Object.keys(j.metadata || {}).length > 0 ? 
+                                Object.entries(j.metadata).map(([k, v]) => 
+                                    `<span class="metadata-tag">${k}: ${v}</span>`
+                                ).join(' ') : '-'
+                            }</td>
+                        </tr>`;
+                    });
+                    html += '</tbody></table>';
+                }
+
+                resultsDiv.innerHTML = html;
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function loadVectors() {
+            const resultsDiv = document.getElementById('vectors-results');
+            resultsDiv.innerHTML = '<div class="loading">Loading vectors...</div>';
+
+            try {
+                const data = await apiCall('/test-ui/vectors');
+                
+                let html = `<div class="stat-card"><h3>Total Vectors</h3><div class="value">${data.total || 0}</div></div>`;
+
+                if (!data.vectors || data.vectors.length === 0) {
+                    html += '<div class="result-item">No vectors found.</div>';
+                } else {
+                    html += '<table class="data-table">';
+                    html += '<thead><tr><th>ID</th><th>Transcript ID</th><th>Segment Index</th><th>Vector Dimension</th><th>Payload</th></tr></thead><tbody>';
+                    
+                    data.vectors.slice(0, 100).forEach(v => {
+                        html += `<tr>
+                            <td><code>${v.id.substring(0, 8)}...</code></td>
+                            <td><code>${v.transcriptId || '-'}</code></td>
+                            <td>${v.segmentIndex ?? '-'}</td>
+                            <td>${v.vector ? v.vector.length : '-'}</td>
+                            <td><div class="json-view">${JSON.stringify(v.payload || {}, null, 2)}</div></td>
+                        </tr>`;
+                    });
+                    html += '</tbody></table>';
+                    if (data.vectors.length > 100) {
+                        html += `<div style="margin-top:10px;color:#666;">Showing first 100 of ${data.vectors.length} vectors</div>`;
+                    }
+                }
+
+                resultsDiv.innerHTML = html;
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function loadBlobs() {
+            const resultsDiv = document.getElementById('blobs-results');
+            resultsDiv.innerHTML = '<div class="loading">Loading blobs...</div>';
+
+            try {
+                const blobs = await apiCall('/test-ui/blobs');
+                
+                let html = `<div class="stat-card"><h3>Total Blobs</h3><div class="value">${blobs.length}</div></div>`;
+
+                if (blobs.length === 0) {
+                    html += '<div class="result-item">No blobs found.</div>';
+                } else {
+                    html += '<table class="data-table">';
+                    html += '<thead><tr><th>Blob Key</th><th>Filename</th><th>Content Type</th><th>Size</th><th>Created</th></tr></thead><tbody>';
+                    
+                    blobs.forEach(b => {
+                        html += `<tr>
+                            <td><code>${b.key.substring(0, 20)}...</code></td>
+                            <td>${b.filename || '-'}</td>
+                            <td>${b.contentType || '-'}</td>
+                            <td>${b.size ? formatBytes(b.size) : '-'}</td>
+                            <td>${b.created ? new Date(b.created).toLocaleString() : '-'}</td>
+                        </tr>`;
+                    });
+                    html += '</tbody></table>';
+                }
+
+                resultsDiv.innerHTML = html;
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function loadOpenSearch() {
+            const resultsDiv = document.getElementById('opensearch-results');
+            resultsDiv.innerHTML = '<div class="loading">Loading OpenSearch documents...</div>';
+
+            try {
+                const data = await apiCall('/test-ui/opensearch');
+                
+                let html = `<div class="stat-card"><h3>Total Documents</h3><div class="value">${data.total || 0}</div></div>`;
+
+                if (!data.documents || data.documents.length === 0) {
+                    html += '<div class="result-item">No documents found.</div>';
+                } else {
+                    html += '<table class="data-table">';
+                    html += '<thead><tr><th>ID</th><th>Transcript ID</th><th>Segment Index</th><th>Text Preview</th><th>Metadata</th></tr></thead><tbody>';
+                    
+                    data.documents.slice(0, 100).forEach(d => {
+                        const textPreview = d.text && d.text.length > 100 ? d.text.substring(0, 100) + '...' : (d.text || '-');
+                        html += `<tr>
+                            <td><code>${d.id || '-'}</code></td>
+                            <td><code>${d.transcriptId || '-'}</code></td>
+                            <td>${d.segmentIndex ?? '-'}</td>
+                            <td><pre style="margin:0;max-width:300px;overflow:hidden;text-overflow:ellipsis;">${textPreview}</pre></td>
+                            <td>${Object.keys(d.metadata || {}).length > 0 ? 
+                                Object.entries(d.metadata).map(([k, v]) => 
+                                    `<span class="metadata-tag">${k}: ${v}</span>`
+                                ).join(' ') : '-'
+                            }</td>
+                        </tr>`;
+                    });
+                    html += '</tbody></table>';
+                    if (data.documents.length > 100) {
+                        html += `<div style="margin-top:10px;color:#666;">Showing first 100 of ${data.documents.length} documents</div>`;
+                    }
+                }
+
+                resultsDiv.innerHTML = html;
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        // Auto-load transcripts on page load
+        window.addEventListener('load', () => {
+            loadTranscripts();
+        });
+    </script>
+</body>
+</html>

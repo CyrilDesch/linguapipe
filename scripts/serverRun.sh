@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 set -e
-sbt '~linguapipe-infrastructure/reStart'
+sbt '~srag-infrastructure/reStart'

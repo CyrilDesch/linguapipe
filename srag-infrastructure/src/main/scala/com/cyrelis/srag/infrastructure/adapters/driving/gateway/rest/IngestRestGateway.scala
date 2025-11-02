@@ -1,0 +1,233 @@
+package com.cyrelis.srag.infrastructure.adapters.driving.gateway.rest
+
+import java.nio.charset.StandardCharsets
+
+import com.cyrelis.srag.application.errors.PipelineError
+import com.cyrelis.srag.application.ports.driven.embedding.EmbedderPort
+import com.cyrelis.srag.application.ports.driven.parser.DocumentParserPort
+import com.cyrelis.srag.application.ports.driven.reranker.RerankerPort
+import com.cyrelis.srag.application.ports.driven.storage.{BlobStorePort, LexicalStorePort, VectorStorePort}
+import com.cyrelis.srag.application.ports.driven.transcription.TranscriberPort
+import com.cyrelis.srag.application.ports.driving.{HealthCheckPort, IngestPort, QueryPort}
+import com.cyrelis.srag.domain.ingestionjob.IngestionJobRepository
+import com.cyrelis.srag.domain.transcript.TranscriptRepository
+import com.cyrelis.srag.infrastructure.adapters.driving.Gateway
+import com.cyrelis.srag.infrastructure.adapters.driving.gateway.rest.endpoint.{
+  MainEndpoints,
+  TestEndpoints,
+  TestUiEndpoints
+}
+import com.cyrelis.srag.infrastructure.adapters.driving.gateway.rest.handler.{
+  MainHandlers,
+  TestHandlers,
+  TestUiHandlers
+}
+import sttp.tapir.server.ziohttp.ZioHttpInterpreter
+import sttp.tapir.swagger.SwaggerUIOptions
+import sttp.tapir.swagger.bundle.SwaggerInterpreter
+import sttp.tapir.ztapir.RichZEndpoint
+import zio.*
+import zio.http.*
+
+final class IngestRestGateway(
+  host: String,
+  port: Int,
+  maxBodySizeBytes: Long
+) extends Gateway {
+
+  type TestEnv = TranscriberPort & EmbedderPort & BlobStorePort & DocumentParserPort &
+    TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]] & VectorStorePort & LexicalStorePort & RerankerPort &
+    IngestionJobRepository[[X] =>> ZIO[Any, PipelineError, X]]
+
+  private def buildRoutes: ZIO[IngestPort & HealthCheckPort & QueryPort & TestEnv, Nothing, Routes[Any, Response]] =
+    for {
+      mainRoutes   <- buildMainRoutes
+      testRoutes   <- buildTestRoutes
+      testUiRoutes <- buildTestUiRoutes
+      docsRoutes   <- buildDocsRoutes
+      staticRoutes <- buildStaticRoutes
+    } yield docsRoutes ++ mainRoutes ++ testRoutes ++ testUiRoutes ++ staticRoutes
+
+  private def buildMainRoutes: ZIO[
+    IngestPort & HealthCheckPort & QueryPort & BlobStorePort & TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]],
+    Nothing,
+    Routes[Any, Response]
+  ] =
+    for {
+      ingestPort      <- ZIO.service[IngestPort]
+      healthCheckPort <- ZIO.service[HealthCheckPort]
+      queryPort       <- ZIO.service[QueryPort]
+      blobStore       <- ZIO.service[BlobStorePort]
+      transcriptRepo  <- ZIO.service[TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]]]
+    } yield ZioHttpInterpreter().toHttp(
+      List(
+        MainEndpoints.health.zServerLogic(_ => MainHandlers.handleHealth.provide(ZLayer.succeed(healthCheckPort))),
+        MainEndpoints.ingestAudioMultipart.zServerLogic(
+          MainHandlers.handleIngestAudio(_).provide(ZLayer.succeed(ingestPort))
+        ),
+        MainEndpoints.ingestText.zServerLogic(MainHandlers.handleIngestText(_).provide(ZLayer.succeed(ingestPort))),
+        MainEndpoints.ingestDocument.zServerLogic(
+          MainHandlers.handleIngestDocument(_).provide(ZLayer.succeed(ingestPort))
+        ),
+        MainEndpoints.jobStatus.zServerLogic(
+          MainHandlers.handleGetJobStatus(_).provide(ZLayer.succeed(ingestPort))
+        ),
+        MainEndpoints.transcripts.zServerLogic { case (q, queryParams) =>
+          val qpMap                                  = queryParams.toMap
+          val filtersFromParams: Map[String, String] = qpMap.collect {
+            case (k, v) if k.startsWith("metadata.") =>
+              k.stripPrefix("metadata.") -> v
+          }
+          val filtersFromList: Map[String, String] = q.metadata.flatMap { entry =>
+            val idx = entry.indexOf('=')
+            if (idx > 0) Some(entry.substring(0, idx) -> entry.substring(idx + 1)) else None
+          }.toMap
+          val filters      = filtersFromParams ++ filtersFromList
+          val sortBy       = q.sortBy
+          val metadataSort = q.metadataSort
+          val order        = q.order
+          MainHandlers
+            .handleGetTranscripts(filters, sortBy, metadataSort, order)
+            .provide(ZLayer.succeed(transcriptRepo))
+        },
+        MainEndpoints.getFile.zServerLogic(
+          MainHandlers.handleGetFile(_).provide(ZLayer.succeed(blobStore))
+        ),
+        MainEndpoints.query.zServerLogic(
+          MainHandlers.handleQuery(_).provide(ZLayer.succeed(queryPort))
+        )
+      )
+    )
+
+  private def buildTestRoutes: ZIO[TestEnv, Nothing, Routes[Any, Response]] =
+    for {
+      transcriber    <- ZIO.service[TranscriberPort]
+      embedder       <- ZIO.service[EmbedderPort]
+      blobStore      <- ZIO.service[BlobStorePort]
+      documentParser <- ZIO.service[DocumentParserPort]
+      dbSink         <- ZIO.service[TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]]]
+      vectorSink     <- ZIO.service[VectorStorePort]
+      lexicalStore   <- ZIO.service[LexicalStorePort]
+      reranker       <- ZIO.service[RerankerPort]
+    } yield ZioHttpInterpreter().toHttp(
+      List(
+        TestEndpoints.testTranscriber.zServerLogic(
+          TestHandlers.handleTranscriber(_).provide(ZLayer.succeed(transcriber))
+        ),
+        TestEndpoints.testEmbedder.zServerLogic(TestHandlers.handleEmbedder(_).provide(ZLayer.succeed(embedder))),
+        TestEndpoints.testBlobStore.zServerLogic(TestHandlers.handleBlobStore(_).provide(ZLayer.succeed(blobStore))),
+        TestEndpoints.testDocumentParser.zServerLogic(
+          TestHandlers.handleDocumentParser(_).provide(ZLayer.succeed(documentParser))
+        ),
+        TestEndpoints.testDatabase.zServerLogic(TestHandlers.handleDatabase(_).provide(ZLayer.succeed(dbSink))),
+        TestEndpoints.testVectorStore.zServerLogic(
+          TestHandlers.handleVectorStore(_).provide(ZLayer.succeed(vectorSink) ++ ZLayer.succeed(embedder))
+        ),
+        TestEndpoints.testVectorStoreQuery.zServerLogic(
+          TestHandlers.handleVectorStoreQuery(_).provide(ZLayer.succeed(vectorSink) ++ ZLayer.succeed(embedder))
+        ),
+        TestEndpoints.getAllTranscripts.zServerLogic(_ =>
+          TestHandlers.handleGetAllTranscripts.provide(ZLayer.succeed(dbSink))
+        ),
+        TestEndpoints.testReranker.zServerLogic(
+          TestHandlers.handleReranker(_).provide(ZLayer.succeed(reranker))
+        ),
+        TestEndpoints.testLexicalStoreIndex.zServerLogic(
+          TestHandlers.handleLexicalStoreIndex(_).provide(ZLayer.succeed(lexicalStore))
+        ),
+        TestEndpoints.testLexicalStoreSearch.zServerLogic(
+          TestHandlers.handleLexicalStoreSearch(_).provide(ZLayer.succeed(lexicalStore))
+        )
+      )
+    )
+
+  private def buildTestUiRoutes: ZIO[TestEnv, Nothing, Routes[Any, Response]] =
+    for {
+      jobRepo      <- ZIO.service[IngestionJobRepository[[X] =>> ZIO[Any, PipelineError, X]]]
+      vectorStore  <- ZIO.service[VectorStorePort]
+      blobStore    <- ZIO.service[BlobStorePort]
+      lexicalStore <- ZIO.service[LexicalStorePort]
+    } yield ZioHttpInterpreter().toHttp(
+      List(
+        TestUiEndpoints.listAllJobs.zServerLogic(_ =>
+          TestUiHandlers.handleListAllJobs.provide(ZLayer.succeed(jobRepo))
+        ),
+        TestUiEndpoints.listAllVectors.zServerLogic(_ =>
+          TestUiHandlers.handleListAllVectors.provide(ZLayer.succeed(vectorStore))
+        ),
+        TestUiEndpoints.listAllBlobs.zServerLogic(_ =>
+          TestUiHandlers.handleListAllBlobs.provide(ZLayer.succeed(blobStore))
+        ),
+        TestUiEndpoints.listAllOpenSearch.zServerLogic(_ =>
+          TestUiHandlers.handleListAllOpenSearch.provide(ZLayer.succeed(lexicalStore))
+        )
+      )
+    )
+
+  private def buildDocsRoutes: ZIO[Any, Nothing, Routes[Any, Response]] =
+    ZIO.succeed {
+      val docsEndpoints = SwaggerInterpreter(
+        swaggerUIOptions = SwaggerUIOptions.default.pathPrefix(List("docs"))
+      ).fromEndpoints[Task](
+        MainEndpoints.all ++ TestEndpoints.all ++ TestUiEndpoints.all,
+        "SRAG API",
+        "v1"
+      )
+      ZioHttpInterpreter().toHttp(docsEndpoints)
+    }
+
+  private def buildStaticRoutes: ZIO[Any, Nothing, Routes[Any, Response]] =
+    ZIO.succeed {
+      val htmlHandler = Handler.fromZIO {
+        ZIO.attemptBlocking {
+          val stream = getClass.getClassLoader.getResourceAsStream("static/index.html")
+          if (stream == null) throw new RuntimeException("static/index.html not found")
+          try new String(stream.readAllBytes(), StandardCharsets.UTF_8)
+          finally stream.close()
+        }.map { html =>
+          Response(
+            status = Status.Ok,
+            headers = Headers(Header.ContentType(MediaType.text.html)),
+            body = Body.fromString(html)
+          )
+        }
+          .catchAll(_ => ZIO.succeed(Response.text("Admin UI not available").status(Status.NotFound)))
+      }
+
+      Routes(
+        Method.GET / ""   -> htmlHandler,
+        Method.GET / "ui" -> htmlHandler
+      )
+    }
+
+  def startWithDeps: ZIO[IngestPort & HealthCheckPort & QueryPort & TestEnv, Throwable, Unit] =
+    for {
+      routes <- buildRoutes
+      _      <- ZIO.logInfo(s"REST server will listen on $host:$port")
+      _      <- {
+        val docsUrl  = s"http://$host:$port/docs"
+        val docsLink = s"\u001B]8;;$docsUrl\u0007$docsUrl\u001B]8;;\u0007"
+        ZIO.logInfo(s"REST server docs will be available at $docsLink")
+      }
+      _ <- {
+        val uiUrl  = s"http://$host:$port/ui"
+        val uiLink = s"\u001B]8;;$uiUrl\u0007$uiUrl\u001B]8;;\u0007"
+        ZIO.logInfo(s"Admin UI will be available at $uiLink")
+      }
+      serverFiber <- Server
+                       .serve(routes)
+                       .provide(
+                         Server.defaultWith(
+                           _.port(port).disableRequestStreaming(maxBodySizeBytes.toInt)
+                         )
+                       )
+                       .fork
+      _ <- serverFiber.await
+    } yield ()
+
+  override def start: ZIO[Any, Throwable, Unit] =
+    ZIO.logWarning("Gateway.start() called without dependencies - this should not happen in normal operation")
+
+  override def description: String =
+    s"REST API Gateway on $host:$port"
+}
