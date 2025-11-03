@@ -23,6 +23,7 @@ trait BlobStorePort {
     mediaContentType: String,
     mediaFilename: String
   ): ZIO[Any, PipelineError, String]
+  def storeText(jobId: UUID, textContent: String): ZIO[Any, PipelineError, String]
   def fetchAudio(blobKey: String): ZIO[Any, PipelineError, Array[Byte]]
   def fetchBlobAsStream(blobKey: String): ZStream[Any, PipelineError, Byte]
   def getBlobFilename(blobKey: String): ZIO[Any, PipelineError, Option[String]]

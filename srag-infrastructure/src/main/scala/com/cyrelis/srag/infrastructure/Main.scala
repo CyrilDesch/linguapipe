@@ -47,6 +47,9 @@ object Main extends ZIOAppDefault {
       ModuleWiring.documentParserLayer,
       ModuleWiring.jobRepositoryLayer,
       ModuleWiring.jobQueueLayer,
+      ModuleWiring.audioSourcePreparatorLayer,
+      ModuleWiring.textSourcePreparatorLayer,
+      ModuleWiring.commonIndexingPipelineLayer,
       ModuleWiring.ingestServiceLayer,
       ModuleWiring.jobWorkerLayer,
       ModuleWiring.queryServiceLayer,
@@ -55,17 +58,19 @@ object Main extends ZIOAppDefault {
     )
 
   private def startup: ZIO[AppDependencies, Nothing, Unit] =
-    (for {
-      _           <- ZIO.logInfo("Starting SRAG application...")
-      _           <- runMigrations
-      _           <- ensureAllHealthy
-      _           <- recoverAbandonedJobsAfterDelay.forkDaemon
-      worker      <- ZIO.service[DefaultIngestionJobWorker]
-      _           <- ZIO.logInfo("Starting ingestion job worker...")
-      workerFiber <- worker.run.forkDaemon
-      _           <- startGateway
-      _           <- ZIO.never.onInterrupt(workerFiber.interrupt)
-    } yield ()).orDie
+    ZIO.scoped {
+      for {
+        _      <- ZIO.logInfo("Starting SRAG application...")
+        _      <- runMigrations
+        _      <- ensureAllHealthy
+        _      <- recoverAbandonedJobsAfterDelay.forkDaemon
+        worker <- ZIO.service[DefaultIngestionJobWorker]
+        _      <- ZIO.logInfo("Starting ingestion job worker...")
+        _      <- worker.run.forkScoped
+        _      <- startGateway
+        _      <- ZIO.never
+      } yield ()
+    }.orDie
 
   private def recoverAbandonedJobsAfterDelay: ZIO[JobQueuePort, Nothing, Unit] =
     for {
@@ -149,7 +154,7 @@ object Main extends ZIOAppDefault {
       .unit
 
   private def startGateway
-    : ZIO[Gateway & IngestPort & HealthCheckPort & QueryPort & RuntimeConfig & AllPorts, Throwable, Unit] =
+    : ZIO[Scope & Gateway & IngestPort & HealthCheckPort & QueryPort & RuntimeConfig & AllPorts, Throwable, Unit] =
     for {
       gateway <- ZIO.service[Gateway]
       _       <- gateway match {

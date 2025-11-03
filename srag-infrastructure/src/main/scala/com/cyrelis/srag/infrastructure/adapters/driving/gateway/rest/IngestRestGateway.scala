@@ -200,7 +200,7 @@ final class IngestRestGateway(
       )
     }
 
-  def startWithDeps: ZIO[IngestPort & HealthCheckPort & QueryPort & TestEnv, Throwable, Unit] =
+  def startWithDeps: ZIO[Scope & IngestPort & HealthCheckPort & QueryPort & TestEnv, Throwable, Unit] =
     for {
       routes <- buildRoutes
       _      <- ZIO.logInfo(s"REST server will listen on $host:$port")
@@ -214,15 +214,14 @@ final class IngestRestGateway(
         val uiLink = s"\u001B]8;;$uiUrl\u0007$uiUrl\u001B]8;;\u0007"
         ZIO.logInfo(s"Admin UI will be available at $uiLink")
       }
-      serverFiber <- Server
-                       .serve(routes)
-                       .provide(
-                         Server.defaultWith(
-                           _.port(port).disableRequestStreaming(maxBodySizeBytes.toInt)
-                         )
-                       )
-                       .fork
-      _ <- serverFiber.await
+      _ <- Server
+             .serve(routes)
+             .provide(
+               Server.defaultWith(
+                 _.port(port).disableRequestStreaming(maxBodySizeBytes.toInt)
+               )
+             )
+             .forkScoped
     } yield ()
 
   override def start: ZIO[Any, Throwable, Unit] =
