@@ -86,3 +86,27 @@ object IngestionJob:
       createdAt = createdAt,
       updatedAt = createdAt
     )
+
+  def newTextJob(
+    blobKey: String,
+    metadata: Map[String, String],
+    maxAttempts: Int,
+    createdAt: Instant
+  ): IngestionJob =
+    val jobId = UUID.randomUUID()
+
+    IngestionJob(
+      id = jobId,
+      transcriptId = None,
+      source = IngestSource.Text,
+      mediaContentType = None,
+      mediaFilename = None,
+      status = JobStatus.Pending,
+      attempt = 0,
+      maxAttempts = maxAttempts,
+      errorMessage = None,
+      blobKey = Some(blobKey),
+      metadata = metadata,
+      createdAt = createdAt,
+      updatedAt = createdAt
+    )

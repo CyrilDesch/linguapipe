@@ -1,66 +1,75 @@
 package com.cyrelis.srag.application.workers
 
 import java.time.Instant
+import java.util.UUID
 
 import scala.math.pow
 
 import com.cyrelis.srag.application.errors.PipelineError
-import com.cyrelis.srag.application.ports.driven.embedding.EmbedderPort
+import com.cyrelis.srag.application.pipeline.{
+  AudioSourcePreparator,
+  IndexingPipeline,
+  SourcePreparator,
+  TextSourcePreparator
+}
 import com.cyrelis.srag.application.ports.driven.job.JobQueuePort
-import com.cyrelis.srag.application.ports.driven.storage.{BlobStorePort, LexicalStorePort, VectorStorePort}
-import com.cyrelis.srag.application.ports.driven.transcription.TranscriberPort
+import com.cyrelis.srag.application.ports.driven.storage.BlobStorePort
 import com.cyrelis.srag.application.types.JobProcessingConfig
 import com.cyrelis.srag.domain.ingestionjob.{IngestionJob, IngestionJobRepository, JobStatus}
-import com.cyrelis.srag.domain.transcript.{IngestSource, TranscriptRepository}
+import com.cyrelis.srag.domain.transcript.IngestSource
 import zio.*
 
 final class DefaultIngestionJobWorker(
   jobRepository: IngestionJobRepository[[X] =>> ZIO[Any, PipelineError, X]],
   blobStore: BlobStorePort,
-  transcriber: TranscriberPort,
-  embedder: EmbedderPort,
-  transcriptRepository: TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]],
-  vectorSink: VectorStorePort,
-  lexicalStore: LexicalStorePort,
+  audioPreparator: AudioSourcePreparator,
+  textPreparator: TextSourcePreparator,
+  indexingPipeline: IndexingPipeline,
   jobConfig: JobProcessingConfig,
   jobQueue: JobQueuePort
 ) {
 
-  def run: ZIO[Any, Nothing, Unit] = (for {
-    jobOpt <- jobQueue
-                .claim(blockingTimeoutSec = jobConfig.pollInterval.toSeconds.toInt)
-                .catchAll(err => ZIO.logWarning(s"claim failed: ${err.message}").as(None))
-    _ <- jobOpt match {
-           case Some(jobId) =>
-             ZIO.scoped {
-               ZIO
-                 .acquireRelease(
-                   (for {
-                     _ <- ZIO.sleep((JobQueuePort.LockExpirationSeconds / 2).seconds)
-                     _ <- jobQueue
-                            .heartbeat(jobId)
-                            .catchAll(e => ZIO.logWarning(s"Heartbeat failed for $jobId: ${e.message}"))
-                   } yield ()).forever.forkDaemon
-                 )(fiber => fiber.interrupt)
-                 .flatMap { _ =>
-                   ZIO.logDebug(s"Claimed job: $jobId") *>
-                     processById(jobId).foldZIO(
-                       err => handleFailureById(jobId, err),
-                       _ =>
-                         for {
-                           _ <- ZIO.logDebug(s"Job $jobId processed successfully, acknowledging")
-                           _ <-
-                             jobQueue.ack(jobId).catchAll(e => ZIO.logWarning(s"ack failed for $jobId: ${e.message}"))
-                         } yield ()
-                     )
-                 }
+  def run: ZIO[Any, Nothing, Unit] =
+    Semaphore.make(jobConfig.maxConcurrentJobs.toLong).flatMap { semaphore =>
+      (for {
+        jobOpt <- jobQueue
+                    .claim(blockingTimeoutSec = jobConfig.pollInterval.toSeconds.toInt)
+                    .catchAll(err => ZIO.logWarning(s"claim failed: ${err.message}").as(None))
+        _ <- jobOpt match {
+               case Some(jobId) =>
+                 semaphore
+                   .withPermit(
+                     processJob(jobId)
+                   )
+                   .forkDaemon
+                   .unit
+               case None =>
+                 ZIO.unit
              }
-           case None =>
-             ZIO.unit
-         }
-  } yield ()).forever
+      } yield ()).forever
+    }
 
-  private def processById(jobId: java.util.UUID): ZIO[Any, PipelineError, Unit] =
+  private def processJob(jobId: UUID): ZIO[Any, Nothing, Unit] =
+    ZIO.scoped {
+      (for {
+        _ <- ZIO.sleep((JobQueuePort.LockExpirationSeconds / 2).seconds)
+        _ <- jobQueue
+               .heartbeat(jobId)
+               .catchAll(e => ZIO.logWarning(s"Heartbeat failed for $jobId: ${e.message}"))
+      } yield ()).forever.forkScoped *>
+        (ZIO.logDebug(s"Claimed job: $jobId") *>
+          processById(jobId).foldZIO(
+            err => handleFailureById(jobId, err),
+            _ =>
+              for {
+                _ <- ZIO.logDebug(s"Job $jobId processed successfully, acknowledging")
+                _ <-
+                  jobQueue.ack(jobId).catchAll(e => ZIO.logWarning(s"ack failed for $jobId: ${e.message}"))
+              } yield ()
+          ))
+    }
+
+  private def processById(jobId: UUID): ZIO[Any, PipelineError, Unit] =
     for {
       _      <- ZIO.logDebug(s"Starting processing for job $jobId")
       jobOpt <- jobRepository.findById(jobId)
@@ -71,80 +80,42 @@ final class DefaultIngestionJobWorker(
       _      <- ZIO.logDebug(s"Completed processing for job $jobId")
     } yield ()
 
-  private def processSingleJob(job: IngestionJob): ZIO[Any, PipelineError, Unit] =
+  private def processSingleJob(job: IngestionJob): ZIO[Any, PipelineError, Unit] = {
+    val preparator = selectPreparator(job.source)
+
     for {
-      _          <- ZIO.logDebug(s"Processing job ${job.id} - step 1: marking as transcribing (attempt ${job.attempt + 1})")
-      claimedJob <- ZIO.succeed(
-                      job
-                        .incrementAttempt()
-                        .markTranscribing()
-                    )
-      jobState1 <- jobRepository.update(claimedJob)
-      _         <- ZIO.logDebug(s"Job ${jobState1.id} updated to status: ${jobState1.status}")
-      blobKey   <- ZIO
-                   .fromOption(jobState1.blobKey)
-                   .orElseFail(PipelineError.DatabaseError(s"Missing blob key for job ${jobState1.id}", None))
-      _           <- ZIO.logDebug(s"Job ${jobState1.id} - step 2: fetching blob $blobKey")
-      contentType <-
-        ZIO
-          .fromOption(jobState1.mediaContentType)
-          .orElseFail(PipelineError.DatabaseError(s"Missing media content type for job ${jobState1.id}", None))
-      mediaFilename <-
-        ZIO
-          .fromOption(jobState1.mediaFilename)
-          .orElseFail(PipelineError.DatabaseError(s"Missing media filename for job ${jobState1.id}", None))
-      _               <- ZIO.logDebug(s"Job ${jobState1.id} - media: $mediaFilename (content-type: $contentType)")
-      audio           <- blobStore.fetchAudio(blobKey)
-      _               <- ZIO.logDebug(s"Job ${jobState1.id} - step 3: transcribing audio (size: ${audio.length} bytes)")
-      temp_transcript <- transcriber
-                           .transcribe(audio, contentType, mediaFilename)
-      _ <-
-        ZIO.logDebug(
-          s"Job ${jobState1.id} - transcription completed: transcript ${temp_transcript.id}, text length: ${temp_transcript.text.length} chars"
-        )
-      transcript  = temp_transcript.addMetadatas(jobState1.metadata)
-      _          <- ZIO.logDebug(s"Job ${jobState1.id} - step 4: persisting transcript ${transcript.id}")
-      _          <- transcriptRepository.persist(transcript)
-      jobWithTid <- jobRepository.update(
-                      jobState1.copy(transcriptId = Some(transcript.id))
-                    )
-      _         <- ZIO.logDebug(s"Job ${jobWithTid.id} - step 5: marking as embedding")
-      jobState2 <-
-        jobRepository.update(
-          jobWithTid.markEmbedding()
-        )
-      _         <- ZIO.logDebug(s"Job ${jobState2.id} - step 6: generating embeddings")
-      segments  <- embedder.embed(transcript)
-      _         <- ZIO.logDebug(s"Job ${jobState2.id} - embeddings generated: ${segments.size} chunks")
-      _         <- ZIO.logDebug(s"Job ${jobState2.id} - step 7: marking as indexing")
-      jobState3 <-
-        jobRepository.update(
-          jobState2.markIndexing()
-        )
-      chunkVectors        = segments.map(_._2)
-      chunkTextsWithIndex = segments.zipWithIndex.map { case ((text, _), index) => (index, text) }
-      _                  <- ZIO.logDebug(s"Job ${jobState3.id} - step 8: upserting ${chunkVectors.size} vectors into vector store")
-      _                  <- vectorSink.upsertEmbeddings(transcript.id, chunkVectors, transcript.metadata)
-      _                  <- ZIO.logDebug(s"Job ${jobState3.id} - vectors upserted successfully")
-      _                  <- ZIO.logDebug(s"Job ${jobState3.id} - step 9: purging old lexical index")
-      _                  <- lexicalStore
-             .deleteTranscript(transcript.id)
-             .catchAll(error => ZIO.logWarning(s"Failed to purge lexical index for ${transcript.id}: ${error.message}"))
-      _ <-
-        ZIO.logDebug(s"Job ${jobState3.id} - step 10: indexing ${chunkTextsWithIndex.size} segments into lexical store")
-      _          <- lexicalStore.indexSegments(transcript.id, chunkTextsWithIndex, transcript.metadata)
-      _          <- ZIO.logDebug(s"Job ${jobState3.id} - lexical index updated successfully")
-      _          <- ZIO.logDebug(s"Job ${jobState3.id} - step 11: marking as success")
-      finalState <-
-        jobRepository.update(
-          jobState3.markSuccess()
-        )
-      _ <- ZIO.logDebug(s"Job ${finalState.id} - step 12: deleting blob $blobKey")
-      _ <- blobStore
-             .deleteBlob(blobKey)
-             .catchAll(error => ZIO.logWarning(s"Failed to delete blob for job ${finalState.id}: ${error.message}"))
-      _ <- ZIO.logDebug(s"Job ${finalState.id} - processing completed successfully")
+      _          <- ZIO.logDebug(s"Processing job ${job.id} (source: ${job.source}) - incrementing attempt (${job.attempt + 1})")
+      claimedJob <- ZIO.succeed(job.incrementAttempt().markTranscribing())
+      jobState1  <- jobRepository.update(claimedJob)
+      _          <- ZIO.logDebug(s"Job ${jobState1.id} - preparing ${jobState1.source} content")
+      transcript <- preparator.prepare(jobState1)
+      jobWithTid <- jobRepository.update(jobState1.copy(transcriptId = Some(transcript.id)))
+      _          <- ZIO.logDebug(s"Job ${jobWithTid.id} - marking as embedding")
+      jobState2  <- jobRepository.update(jobWithTid.markEmbedding())
+      _          <- indexingPipeline.index(transcript, jobState2)
+      _          <- ZIO.logDebug(s"Job ${jobState2.id} - marking as success")
+      finalState <- jobRepository.update(jobState2.markSuccess())
+      _          <- cleanupBlob(finalState)
+      _          <- ZIO.logDebug(s"Job ${finalState.id} - processing completed successfully")
     } yield ()
+  }
+
+  private def selectPreparator(source: IngestSource): SourcePreparator = source match {
+    case IngestSource.Audio => audioPreparator
+    case IngestSource.Text  => textPreparator
+    case _                  => audioPreparator
+  }
+
+  private def cleanupBlob(job: IngestionJob): ZIO[Any, Nothing, Unit] =
+    job.blobKey match {
+      case Some(blobKey) =>
+        ZIO.logDebug(s"Job ${job.id} - deleting blob $blobKey") *>
+          blobStore
+            .deleteBlob(blobKey)
+            .catchAll(error => ZIO.logWarning(s"Failed to delete blob for job ${job.id}: ${error.message}"))
+      case None =>
+        ZIO.logDebug(s"Job ${job.id} - no blob to cleanup")
+    }
 
   private def handleFailure(job: IngestionJob, error: PipelineError): ZIO[Any, Nothing, Unit] =
     for {
@@ -188,18 +159,20 @@ final class DefaultIngestionJobWorker(
                    retryAt match
                      case Some(next) =>
                        val delayMs = java.time.Duration.between(now, next).toMillis
-                       ZIO.logDebug(s"Job ${job.id} - scheduling retry in ${delayMs}ms (at $next)") *>
-                         jobQueue
-                           .release(job.id) // Release from processing queue, will be re-enqueued
-                           .catchAll(e => ZIO.logWarning(s"release failed for ${job.id}: ${e.message}")) *>
-                         ZIO.sleep(zio.Duration.fromMillis(delayMs)) *>
-                         jobQueue
-                           .enqueue(job.id)
-                           .catchAll(e => ZIO.logWarning(s"retry enqueue failed for ${job.id}: ${e.message}"))
+                       (for {
+                         _ <- ZIO.logDebug(s"Job ${job.id} - scheduling retry in ${delayMs}ms (at $next)")
+                         _ <- jobQueue
+                                .release(job.id)
+                                .catchAll(e => ZIO.logWarning(s"release failed for ${job.id}: ${e.message}"))
+                         _ <- ZIO.sleep(zio.Duration.fromMillis(delayMs))
+                         _ <- jobQueue
+                                .enqueue(job.id)
+                                .catchAll(e => ZIO.logWarning(s"retry enqueue failed for ${job.id}: ${e.message}"))
+                       } yield ()).forkDaemon.unit
                      case None =>
                        ZIO.logDebug(s"Job ${job.id} - max attempts reached, sending to dead letter queue") *>
                          jobQueue
-                           .ack(job.id) // Remove from processing queue
+                           .ack(job.id)
                            .catchAll(e => ZIO.logWarning(s"ack failed for ${job.id}: ${e.message}")) *>
                          jobQueue
                            .deadLetter(job.id, error.message)

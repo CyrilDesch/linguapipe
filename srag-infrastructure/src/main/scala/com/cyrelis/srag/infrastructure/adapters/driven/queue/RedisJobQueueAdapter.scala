@@ -47,8 +47,9 @@ final class RedisJobQueueAdapter(
         val jedis = pool.getResource
         try {
           val result = jedis.brpoplpush(queueKey, processingKey, blockingTimeoutSec)
-          if (result == null || result.isEmpty) None
-          else {
+          if (result == null || result.isEmpty) {
+            None
+          } else {
             val jobId        = UUID.fromString(result)
             val lockAcquired = jedis.set(
               lockKey(jobId),

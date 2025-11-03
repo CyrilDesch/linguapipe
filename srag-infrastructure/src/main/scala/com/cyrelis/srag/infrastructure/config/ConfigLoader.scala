@@ -136,7 +136,8 @@ object ConfigLoader {
           if (jobConfig.hasPath("max-retry-delay-ms")) jobConfig.getLong("max-retry-delay-ms") else 60000L,
           MILLISECONDS
         ),
-        backoffFactor = if (jobConfig.hasPath("backoff-factor")) jobConfig.getDouble("backoff-factor") else 2.0
+        backoffFactor = if (jobConfig.hasPath("backoff-factor")) jobConfig.getDouble("backoff-factor") else 2.0,
+        maxConcurrentJobs = if (jobConfig.hasPath("max-concurrent-jobs")) jobConfig.getInt("max-concurrent-jobs") else 1
       )
     } else {
       JobProcessingConfig(
@@ -145,7 +146,8 @@ object ConfigLoader {
         batchSize = 5,
         initialRetryDelay = FiniteDuration(2000L, MILLISECONDS),
         maxRetryDelay = FiniteDuration(60000L, MILLISECONDS),
-        backoffFactor = 2.0
+        backoffFactor = 2.0,
+        maxConcurrentJobs = 1
       )
     }
   }

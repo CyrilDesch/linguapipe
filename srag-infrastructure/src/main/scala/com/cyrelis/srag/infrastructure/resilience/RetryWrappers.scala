@@ -155,6 +155,14 @@ object RetryWrappers {
       RetryService.applyRetry(withTimeout, retryConfig)
     }
 
+    override def storeText(jobId: UUID, textContent: String): ZIO[Any, PipelineError, String] = {
+      val withTimeout = TimeoutService.applyBlobStoreTimeout(
+        underlying.storeText(jobId, textContent),
+        timeoutConfig
+      )
+      RetryService.applyRetry(withTimeout, retryConfig)
+    }
+
     override def fetchAudio(blobKey: String): ZIO[Any, PipelineError, Array[Byte]] = {
       val withTimeout = TimeoutService.applyBlobStoreTimeout(
         underlying.fetchAudio(blobKey),

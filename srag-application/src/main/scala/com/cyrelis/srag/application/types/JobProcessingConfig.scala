@@ -8,5 +8,6 @@ final case class JobProcessingConfig(
   batchSize: Int,
   initialRetryDelay: FiniteDuration,
   maxRetryDelay: FiniteDuration,
-  backoffFactor: Double
+  backoffFactor: Double,
+  maxConcurrentJobs: Int = 1
 )
