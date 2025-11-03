@@ -49,6 +49,20 @@ final class MinioAdapter(host: String, port: Int, accessKey: String, secretKey: 
       } yield blobKey
     }
 
+  override def storeText(jobId: UUID, textContent: String): ZIO[Any, PipelineError, String] =
+    ErrorMapper.mapBlobStoreError {
+      for {
+        blobKey <- ZIO.succeed(UUID.randomUUID().toString)
+        filename = s"text-${java.lang.System.currentTimeMillis()}.txt"
+        metadata = Map(
+                     "x-amz-meta-original-filename" -> filename,
+                     "x-amz-meta-content-type"      -> "text/plain"
+                   ).asJava
+        contentBytes <- ZIO.succeed(textContent.getBytes("UTF-8"))
+        _            <- uploadBlobWithMetadata(blobKey, contentBytes, "text/plain", metadata)
+      } yield blobKey
+    }
+
   override def fetchAudio(blobKey: String): ZIO[Any, PipelineError, Array[Byte]] =
     ErrorMapper.mapBlobStoreError {
       for {

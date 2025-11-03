@@ -52,7 +52,28 @@ final class DefaultIngestService(
     textContent: String,
     metadata: Map[String, String]
   ): ZIO[Any, PipelineError, IngestionJob] =
-    ZIO.fail(ConfigurationError("Text ingestion is not yet supported in async mode"))
+    for {
+      now     <- Clock.instant
+      jobId    = UUID.randomUUID()
+      blobKey <- blobStore.storeText(jobId, textContent)
+      job      = IngestionJob(
+              id = jobId,
+              transcriptId = None,
+              source = IngestSource.Text,
+              mediaContentType = None,
+              mediaFilename = None,
+              status = JobStatus.Pending,
+              attempt = 0,
+              maxAttempts = jobConfig.maxAttempts,
+              errorMessage = None,
+              blobKey = Some(blobKey),
+              metadata = metadata,
+              createdAt = now,
+              updatedAt = now
+            )
+      persisted <- jobRepository.create(job)
+      _         <- jobQueue.enqueue(job.id)
+    } yield persisted
 
   override def submitDocument(
     documentContent: String,

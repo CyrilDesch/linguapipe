@@ -1,6 +1,7 @@
 package com.cyrelis.srag.infrastructure.runtime
 
 import com.cyrelis.srag.application.errors.PipelineError
+import com.cyrelis.srag.application.pipeline.{AudioSourcePreparator, IndexingPipeline, TextSourcePreparator}
 import com.cyrelis.srag.application.ports.driven.datasource.DatasourcePort
 import com.cyrelis.srag.application.ports.driven.embedding.EmbedderPort
 import com.cyrelis.srag.application.ports.driven.job.JobQueuePort
@@ -131,6 +132,35 @@ object ModuleWiring {
       AdapterFactory.createJobQueueLayer(config.adapters.driven.jobQueue)
     }
 
+  val audioSourcePreparatorLayer: ZLayer[BlobStorePort & TranscriberPort, Nothing, AudioSourcePreparator] =
+    ZLayer {
+      for {
+        blobStore   <- ZIO.service[BlobStorePort]
+        transcriber <- ZIO.service[TranscriberPort]
+      } yield new AudioSourcePreparator(blobStore, transcriber)
+    }
+
+  val textSourcePreparatorLayer: ZLayer[BlobStorePort, Nothing, TextSourcePreparator] =
+    ZLayer {
+      for {
+        blobStore <- ZIO.service[BlobStorePort]
+      } yield new TextSourcePreparator(blobStore)
+    }
+
+  val commonIndexingPipelineLayer: ZLayer[
+    TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]] & EmbedderPort & VectorStorePort & LexicalStorePort,
+    Nothing,
+    IndexingPipeline
+  ] =
+    ZLayer {
+      for {
+        transcriptRepository <- ZIO.service[TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]]]
+        embedder             <- ZIO.service[EmbedderPort]
+        vectorSink           <- ZIO.service[VectorStorePort]
+        lexicalStore         <- ZIO.service[LexicalStorePort]
+      } yield new IndexingPipeline(transcriptRepository, embedder, vectorSink, lexicalStore)
+    }
+
   val gatewayLayer: ZLayer[RuntimeConfig, Nothing, Gateway] =
     ZLayer {
       for {
@@ -159,31 +189,26 @@ object ModuleWiring {
     }
 
   val jobWorkerLayer: ZLayer[
-    IngestionJobRepository[[X] =>> ZIO[Any, PipelineError, X]] & BlobStorePort & TranscriberPort & EmbedderPort &
-      TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]] & VectorStorePort & LexicalStorePort & JobQueuePort &
-      RuntimeConfig,
+    IngestionJobRepository[[X] =>> ZIO[Any, PipelineError, X]] & BlobStorePort & AudioSourcePreparator &
+      TextSourcePreparator & IndexingPipeline & JobQueuePort & RuntimeConfig,
     Nothing,
     DefaultIngestionJobWorker
   ] =
     ZLayer {
       for {
-        jobRepository        <- ZIO.service[IngestionJobRepository[[X] =>> ZIO[Any, PipelineError, X]]]
-        blobStore            <- ZIO.service[BlobStorePort]
-        transcriber          <- ZIO.service[TranscriberPort]
-        embedder             <- ZIO.service[EmbedderPort]
-        transcriptRepository <- ZIO.service[TranscriptRepository[[X] =>> ZIO[Any, PipelineError, X]]]
-        vectorSink           <- ZIO.service[VectorStorePort]
-        lexicalStore         <- ZIO.service[LexicalStorePort]
-        jobQueue             <- ZIO.service[JobQueuePort]
-        config               <- ZIO.service[RuntimeConfig]
+        jobRepository    <- ZIO.service[IngestionJobRepository[[X] =>> ZIO[Any, PipelineError, X]]]
+        blobStore        <- ZIO.service[BlobStorePort]
+        audioPreparator  <- ZIO.service[AudioSourcePreparator]
+        textPreparator   <- ZIO.service[TextSourcePreparator]
+        indexingPipeline <- ZIO.service[IndexingPipeline]
+        jobQueue         <- ZIO.service[JobQueuePort]
+        config           <- ZIO.service[RuntimeConfig]
       } yield new DefaultIngestionJobWorker(
         jobRepository = jobRepository,
         blobStore = blobStore,
-        transcriber = transcriber,
-        embedder = embedder,
-        transcriptRepository = transcriptRepository,
-        vectorSink = vectorSink,
-        lexicalStore = lexicalStore,
+        audioPreparator = audioPreparator,
+        textPreparator = textPreparator,
+        indexingPipeline = indexingPipeline,
         jobConfig = config.jobProcessing,
         jobQueue = jobQueue
       )
