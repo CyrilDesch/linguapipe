@@ -8,31 +8,23 @@ import scala.concurrent.duration.*
 
 import com.cyrelis.srag.application.ports.driven.transcription.TranscriberPort
 import com.cyrelis.srag.application.types.HealthStatus
-import com.cyrelis.srag.domain.transcript.{IngestSource, LanguageCode, Transcript}
+import com.cyrelis.srag.domain.transcript.{IngestSource, LanguageCode, Transcript, Word}
 import com.cyrelis.srag.infrastructure.config.TranscriberAdapterConfig
 import com.cyrelis.srag.infrastructure.resilience.ErrorMapper
 import io.circe.Codec
-import io.circe.generic.semiauto.*
 import io.circe.parser.*
+import io.circe.syntax.*
 import sttp.client4.*
 import sttp.client4.httpclient.zio.HttpClientZioBackend
 import sttp.model.MediaType
 import zio.*
 
-final case class AssemblyAIUploadResponse(upload_url: String)
-
-object AssemblyAIUploadResponse {
-  given Codec[AssemblyAIUploadResponse] = deriveCodec
-}
+final case class AssemblyAIUploadResponse(upload_url: String) derives Codec
 
 final case class AssemblyAITranscriptSubmitRequest(
   audio_url: String,
   language_detection: Boolean
-)
-
-object AssemblyAITranscriptSubmitRequest {
-  given Codec[AssemblyAITranscriptSubmitRequest] = deriveCodec
-}
+) derives Codec
 
 final case class AssemblyAITranscriptSubmitResponse(
   id: String,
@@ -42,11 +34,7 @@ final case class AssemblyAITranscriptSubmitResponse(
   language_confidence: Option[Double],
   text: Option[String],
   error: Option[String]
-)
-
-object AssemblyAITranscriptSubmitResponse {
-  given Codec[AssemblyAITranscriptSubmitResponse] = deriveCodec
-}
+) derives Codec
 
 final case class AssemblyAITranscriptStatusResponse(
   id: String,
@@ -58,7 +46,7 @@ final case class AssemblyAITranscriptStatusResponse(
   confidence: Option[Double],
   error: Option[String],
   words: Option[List[AssemblyAIWord]] = None
-)
+) derives Codec
 
 final case class AssemblyAIWord(
   text: String,
@@ -66,15 +54,7 @@ final case class AssemblyAIWord(
   end: Long,
   confidence: Double,
   speaker: Option[String] = None
-)
-
-object AssemblyAIWord {
-  given Codec[AssemblyAIWord] = deriveCodec
-}
-
-object AssemblyAITranscriptStatusResponse {
-  given Codec[AssemblyAITranscriptStatusResponse] = deriveCodec
-}
+) derives Codec
 
 class AssemblyAIAdapter(config: TranscriberAdapterConfig.AssemblyAI) extends TranscriberPort {
 
@@ -118,8 +98,6 @@ class AssemblyAIAdapter(config: TranscriberAdapterConfig.AssemblyAI) extends Tra
     ZIO.logDebug(
       s"Uploading audio to AssemblyAI: size=${audioBytes.length} bytes, filename=${_mediaFilename}, contentType=${_mediaContentType}"
     ) *> {
-      // AssemblyAI upload endpoint expects application/octet-stream
-      // According to docs: POST with --data-binary and Content-Type: application/octet-stream
       val request = basicRequest
         .post(url)
         .header("Authorization", apiKey)
@@ -168,7 +146,7 @@ class AssemblyAIAdapter(config: TranscriberAdapterConfig.AssemblyAI) extends Tra
       .post(url)
       .header("Authorization", apiKey)
       .header("Content-Type", "application/json")
-      .body(encode(requestBody))
+      .body(requestBody.asJson.noSpaces)
       .readTimeout(30.seconds)
       .response(asStringAlways)
 
@@ -304,47 +282,54 @@ class AssemblyAIAdapter(config: TranscriberAdapterConfig.AssemblyAI) extends Tra
     transcriptId: UUID,
     response: AssemblyAITranscriptStatusResponse,
     now: Instant
-  ): Task[Transcript] = {
-    // AssemblyAI may return text in the 'text' field or we need to reconstruct it from 'words'
-    val text = response.text match {
-      case Some(t) if t.nonEmpty => t
-      case _                     =>
-        // If text is empty or missing, try to reconstruct from words
-        response.words match {
-          case Some(words) if words.nonEmpty =>
-            words.map(_.text).mkString(" ")
-          case _ => ""
-        }
-    }
-
-    val language = response.language_code.flatMap { code =>
-      // AssemblyAI returns codes like "en_us", "fr", etc. Convert to ISO 639-1
-      val isoCode = code.split("_").head.toLowerCase
-      LanguageCode.fromString(isoCode)
-    }
-    val confidence = response.confidence.getOrElse(0.0)
-
-    ZIO.logDebug(
-      s"Building transcript: id=$transcriptId, text length=${text.length}, language=$language, confidence=$confidence"
-    ) *> ZIO.succeed(
-      Transcript(
-        id = transcriptId,
-        language = language,
-        text = text,
-        confidence = confidence,
-        createdAt = now,
-        source = IngestSource.Audio,
-        metadata = Map(
-          "provider"            -> "assemblyai",
-          "assemblyai_id"       -> response.id,
-          "language_confidence" -> response.language_confidence.map(_.toString).getOrElse("unknown")
+  ): Task[Transcript] =
+    for {
+      confidence <- ZIO
+                      .fromOption(response.confidence)
+                      .orElseFail(
+                        new RuntimeException(
+                          s"AssemblyAI transcript completed but confidence is missing. Transcript ID: ${response.id}"
+                        )
+                      )
+      words <- ZIO
+                 .fromOption(
+                   response.words
+                     .filter(_.nonEmpty)
+                     .map(_.map(w => Word(w.text, w.start, w.end, w.confidence)))
+                     .orElse {
+                       response.text.collect {
+                         case t if t.nonEmpty =>
+                           List(Word(t, 0L, 0L, confidence))
+                       }
+                     }
+                 )
+                 .orElseFail(
+                   new RuntimeException(
+                     s"AssemblyAI transcript completed but contains no words or text. Transcript ID: ${response.id}"
+                   )
+                 )
+      language = response.language_code.flatMap { code =>
+                   // AssemblyAI returns codes like "en_us", "fr", etc. Convert to ISO 639-1
+                   val isoCode = code.split("_").head.toLowerCase
+                   LanguageCode.fromString(isoCode)
+                 }
+      _ <-
+        ZIO.logDebug(
+          s"Building transcript: id=$transcriptId, words count=${words.length}, language=$language, confidence=$confidence"
         )
+    } yield Transcript(
+      id = transcriptId,
+      language = language,
+      words = words,
+      confidence = confidence,
+      createdAt = now,
+      source = IngestSource.Audio,
+      metadata = Map(
+        "provider"            -> "assemblyai",
+        "assemblyai_id"       -> response.id,
+        "language_confidence" -> response.language_confidence.map(_.toString).getOrElse("unknown")
       )
     )
-  }
-
-  private def encode[A](value: A)(using encoder: io.circe.Encoder[A]): String =
-    io.circe.Encoder[A].apply(value).noSpaces
 
   override def healthCheck(): Task[HealthStatus] = {
     val serviceName = s"AssemblyAITranscriber(${config.apiUrl})"
@@ -359,8 +344,6 @@ class AssemblyAIAdapter(config: TranscriberAdapterConfig.AssemblyAI) extends Tra
                     .send(backend)
       _ <- backend.close()
     } yield {
-      // AssemblyAI doesn't have a dedicated health endpoint, so we check if we can reach the API
-      // A 401 or 404 is acceptable (means API is reachable), 500+ is not
       if (response.code.code >= 200 && response.code.code < 500) {
         HealthStatus.Healthy(
           serviceName = serviceName,
