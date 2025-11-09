@@ -22,7 +22,8 @@ final case class TransformersRerankRequest(query: String, documents: List[String
 
 final case class TransformersRerankDocumentScore(document: String, score: Double) derives Codec
 
-final case class TransformersRerankResponse(query: String, scores: Option[List[TransformersRerankDocumentScore]]) derives Codec
+final case class TransformersRerankResponse(query: String, scores: Option[List[TransformersRerankDocumentScore]])
+    derives Codec
 
 class TransformersRerankerAdapter(config: RerankerAdapterConfig.Transformers) extends RerankerPort {
 

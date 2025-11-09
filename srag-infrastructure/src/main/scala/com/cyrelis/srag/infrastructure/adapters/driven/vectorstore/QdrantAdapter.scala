@@ -36,7 +36,8 @@ final case class QdrantSearchRequest(
   with_payload: Option[Boolean] = Some(true)
 ) derives Codec
 
-final case class QdrantSearchResult(id: String, score: Double, payload: Option[Map[String, String]] = None) derives Codec
+final case class QdrantSearchResult(id: String, score: Double, payload: Option[Map[String, String]] = None)
+    derives Codec
 
 final case class QdrantSearchResponse(result: List[QdrantSearchResult]) derives Codec
 

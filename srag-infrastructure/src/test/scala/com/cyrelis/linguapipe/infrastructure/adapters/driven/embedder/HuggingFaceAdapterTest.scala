@@ -20,14 +20,18 @@ object HuggingFaceAdapterTest extends ZIOSpecDefault {
   private def textToWords(text: String): List[Word] =
     if text.isEmpty then List.empty
     else
-      text.split("\\s+").zipWithIndex.map { case (wordText, idx) =>
-        Word(
-          text = wordText,
-          start = idx * 100L,
-          end = (idx + 1) * 100L,
-          confidence = 0.95
-        )
-      }.toList
+      text
+        .split("\\s+")
+        .zipWithIndex
+        .map { case (wordText, idx) =>
+          Word(
+            text = wordText,
+            start = idx * 100L,
+            end = (idx + 1) * 100L,
+            confidence = 0.95
+          )
+        }
+        .toList
 
   private val testConfig: EmbedderAdapterConfig.HuggingFace = EmbedderAdapterConfig.HuggingFace(
     model = "sentence-transformers/all-MiniLM-L6-v2",
