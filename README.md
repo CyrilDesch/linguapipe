@@ -66,7 +66,7 @@ cd srag
 
 ```bash
 # Start all open-source dependencies
-docker-compose up -d
+docker compose up -d
 ```
 
 This starts the following Docker containers:
@@ -302,6 +302,24 @@ sbt srag-infrastructure/test
 # Run tests with coverage
 sbt coverage test coverageReport
 ```
+### 🕤 Load testing
+
+To run the test you have the application running on your device or an external server ( refer to the url in the files)
+
+```bash
+# Run load test
+sbt Gatling/test
+```
+
+#### 🎬 Scenario 
+
+- **Scenario 1** : During 30 seconds we scale from 0 to 100 users. The route of the user is this one : 
+  - The users send a source to be ingested ( a text for now )
+  - The users wait until the source is processed 
+  - The users check the transcript 
+  - The users request between 3 to 5 times to the RAG and read the response
+
+All the files are located in srag-infrastructure/src/test/scala/perf
 
 ## 📚 Documentation
 
